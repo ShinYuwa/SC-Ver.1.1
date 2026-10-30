@@ -104,25 +104,25 @@ interface NextTierInfo {
 // 2. マスターデータ
 // ==========================================
 const CENTERS_DATA: CenterSummary[] = [
-  { id: 'c01', name: 'YDC伊勢原', region: '関東', staffCount: 31, submittedCount: 28, fillRate: 92, alert: null },
-  { id: 'c02', name: '東京第1センター', region: '関東', staffCount: 75, submittedCount: 71, fillRate: 95, alert: null },
-  { id: 'c03', name: '東京第2センター', region: '関東', staffCount: 60, submittedCount: 52, fillRate: 85, alert: null },
-  { id: 'c04', name: '神奈川センター', region: '関東', staffCount: 55, submittedCount: 38, fillRate: 68, alert: '出庫人員不足' },
-  { id: 'c05', name: '埼玉第1センター', region: '関東', staffCount: 65, submittedCount: 60, fillRate: 90, alert: null },
-  { id: 'c06', name: '埼玉第2センター', region: '関東', staffCount: 80, submittedCount: 75, fillRate: 93, alert: null },
-  { id: 'c07', name: '千葉北センター', region: '関東', staffCount: 45, submittedCount: 33, fillRate: 72, alert: 'フォーク乗務不足' },
-  { id: 'c08', name: '相模原センター', region: '関東', staffCount: 50, submittedCount: 48, fillRate: 94, alert: null },
-  { id: 'c09', name: '茨城つくばセンター', region: '関東', staffCount: 40, submittedCount: 37, fillRate: 91, alert: null },
-  { id: 'c10', name: '群馬高崎センター', region: '関東', staffCount: 35, submittedCount: 32, fillRate: 88, alert: null },
-  { id: 'c11', name: '静岡富士センター', region: '東海', staffCount: 45, submittedCount: 41, fillRate: 89, alert: null },
-  { id: 'c12', name: '名古屋第1センター', region: '東海', staffCount: 85, submittedCount: 80, fillRate: 94, alert: null },
-  { id: 'c13', name: '小牧物流センター', region: '東海', staffCount: 50, submittedCount: 46, fillRate: 90, alert: null },
-  { id: 'c14', name: '大阪舞洲センター', region: '関西', staffCount: 90, submittedCount: 85, fillRate: 94, alert: null },
-  { id: 'c15', name: '神戸ポートセンター', region: '関西', staffCount: 60, submittedCount: 54, fillRate: 88, alert: null },
-  { id: 'c16', name: '京都八幡センター', region: '関西', staffCount: 40, submittedCount: 31, fillRate: 75, alert: '午後帯不足' },
-  { id: 'c17', name: '広島西風センター', region: '中国', staffCount: 45, submittedCount: 42, fillRate: 92, alert: null },
-  { id: 'c18', name: '福岡アイランドシティ', region: '九州', staffCount: 80, submittedCount: 76, fillRate: 95, alert: null },
-  { id: 'c19', name: '鳥栖ロジスティクス', region: '九州', staffCount: 69, submittedCount: 65, fillRate: 93, alert: null },
+  { id: 'c150',  name: '千歳',    region: '北海道', staffCount: 30,  submittedCount: 28,  fillRate: 93, alert: null },
+  { id: 'c210',  name: '青森',    region: '東北',   staffCount: 9,   submittedCount: 8,   fillRate: 89, alert: null },
+  { id: 'c440',  name: '宮城',    region: '東北',   staffCount: 31,  submittedCount: 29,  fillRate: 94, alert: null },
+  { id: 'c510',  name: '秋田',    region: '東北',   staffCount: 13,  submittedCount: 12,  fillRate: 92, alert: null },
+  { id: 'c710',  name: '郡山',    region: '東北',   staffCount: 18,  submittedCount: 16,  fillRate: 89, alert: null },
+  { id: 'c920',  name: '佐野',    region: '関東',   staffCount: 100, submittedCount: 92,  fillRate: 92, alert: null },
+  { id: 'c1170', name: '入間',    region: '関東',   staffCount: 114, submittedCount: 105, fillRate: 92, alert: null },
+  { id: 'c1210', name: '千葉',    region: '関東',   staffCount: 65,  submittedCount: 48,  fillRate: 74, alert: 'フォーク乗務不足' },
+  { id: 'c1410', name: '伊勢原',  region: '関東',   staffCount: 153, submittedCount: 142, fillRate: 93, alert: null },
+  { id: 'c1510', name: '新潟',    region: '甲信越', staffCount: 20,  submittedCount: 19,  fillRate: 95, alert: null },
+  { id: 'c1710', name: '金沢',    region: '北陸',   staffCount: 9,   submittedCount: 8,   fillRate: 89, alert: null },
+  { id: 'c2030', name: '長野',    region: '甲信越', staffCount: 25,  submittedCount: 23,  fillRate: 92, alert: null },
+  { id: 'c2410', name: '四日市',  region: '東海',   staffCount: 75,  submittedCount: 70,  fillRate: 93, alert: null },
+  { id: 'c2710', name: '大阪',    region: '関西',   staffCount: 34,  submittedCount: 31,  fillRate: 91, alert: null },
+  { id: 'c2760', name: '岸和田',  region: '関西',   staffCount: 118, submittedCount: 82,  fillRate: 69, alert: '出庫人員不足' },
+  { id: 'c3410', name: '広島',    region: '中国',   staffCount: 22,  submittedCount: 20,  fillRate: 91, alert: null },
+  { id: 'c3730', name: 'さぬき',  region: '四国',   staffCount: 25,  submittedCount: 23,  fillRate: 92, alert: null },
+  { id: 'c4010', name: '朝倉',    region: '九州',   staffCount: 145, submittedCount: 133, fillRate: 92, alert: null },
+  { id: 'c4610', name: '鹿児島',  region: '九州',   staffCount: 23,  submittedCount: 21,  fillRate: 91, alert: null },
 ];
 
 const CALL_REASONS: CallReason[] = [
@@ -174,11 +174,11 @@ const LIKE_TARGET_LIST = [
 ];
 
 const SKILL_TIERS: SkillTier[] = [
-  { name: 'マスター', level: 'S級', range: '10個以上', min: 10, max: 21, count: 50, percentage: 5.0, barColor: 'bg-amber-500', badgeBg: 'bg-amber-100 text-amber-800 border-amber-300' },
-  { name: 'アドバンス', level: 'A級', range: '7〜9個', min: 7, max: 9, count: 150, percentage: 15.0, barColor: 'bg-purple-500', badgeBg: 'bg-purple-100 text-purple-800 border-purple-300' },
-  { name: 'ミドル', level: 'B級', range: '4〜6個', min: 4, max: 6, count: 400, percentage: 40.0, barColor: 'bg-indigo-500', badgeBg: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
-  { name: 'スタンダード', level: 'C級', range: '1〜3個', min: 1, max: 3, count: 320, percentage: 32.0, barColor: 'bg-blue-500', badgeBg: 'bg-blue-100 text-blue-800 border-blue-300' },
-  { name: 'エントリー', level: 'D級', range: '0個', min: 0, max: 0, count: 80, percentage: 8.0, barColor: 'bg-slate-400', badgeBg: 'bg-slate-100 text-slate-700 border-slate-300' },
+  { name: 'マスター', level: 'S級', range: '16個以上', min: 16, max: 21, count: 50, percentage: 5.0, barColor: 'bg-amber-500', badgeBg: 'bg-amber-100 text-amber-800 border-amber-300' },
+  { name: 'プロ', level: 'A級', range: '12〜15個', min: 12, max: 15, count: 150, percentage: 15.0, barColor: 'bg-purple-500', badgeBg: 'bg-purple-100 text-purple-800 border-purple-300' },
+  { name: 'アドバンス', level: 'B級', range: '8〜11個', min: 8, max: 11, count: 400, percentage: 40.0, barColor: 'bg-indigo-500', badgeBg: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
+  { name: 'スタンダード', level: 'C級', range: '5〜8個', min: 5, max: 8, count: 320, percentage: 32.0, barColor: 'bg-blue-500', badgeBg: 'bg-blue-100 text-blue-800 border-blue-300' },
+  { name: 'エントリー', level: 'D級', range: '0～4個', min: 0, max: 4, count: 80, percentage: 8.0, barColor: 'bg-slate-400', badgeBg: 'bg-slate-100 text-slate-700 border-slate-300' },
 ];
 
 const WORK_HISTORY: Record<string, MonthData> = {

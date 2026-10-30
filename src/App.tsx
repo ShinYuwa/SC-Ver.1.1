@@ -1,9 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, FormEvent } from 'react';
 
 // ==========================================
-// 型定義
+// 1. 型定義 (TypeScript)
 // ==========================================
 type UserRole = 'staff' | 'center_admin' | 'super_admin';
+type ShiftSubTab = 'submit' | 'history';
+type CenterTab = 'shift' | 'skills' | 'likes';
+type SkillStatus = 'none' | 'pending' | 'approved';
 
 interface WorkRecord {
   date: string;
@@ -17,8 +20,6 @@ interface MonthData {
   cumulativeSalary: number;
   records: WorkRecord[];
 }
-
-type SkillStatus = 'none' | 'pending' | 'approved';
 
 interface ActiveCall {
   id: number;
@@ -65,8 +66,16 @@ interface CallReason {
   color: string;
 }
 
+interface PendingMessage {
+  id: number;
+  from: string;
+  to: string;
+  text: string;
+  status: 'pending' | 'approved';
+}
+
 // ==========================================
-// 1. マスターデータ
+// 2. マスターデータ
 // ==========================================
 const CENTERS_DATA: CenterSummary[] = [
   { id: 'c01', name: 'YDC伊勢原', region: '関東', staffCount: 31, submittedCount: 28, fillRate: 92, alert: null },
@@ -171,7 +180,7 @@ const WORK_HISTORY: Record<string, MonthData> = {
 };
 
 // ==========================================
-// 2. 共通アイコン
+// 3. 共通コンポーネント
 // ==========================================
 const SvgIcon = ({ path }: { path: string }) => (
   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -205,9 +214,6 @@ const NAV_TABS = [
   { id: 'skills', label: 'スキル/分布', color: 'text-amber-600', path: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z' },
 ];
 
-// ==========================================
-// 3. 高速化：いいね送信フォーム
-// ==========================================
 interface FastLikeFormProps {
   sentCount: number;
   monthlyLikeLimit: number;
@@ -219,7 +225,7 @@ function FastLikeForm({ sentCount, monthlyLikeLimit, targetList, onSend }: FastL
   const [selectedTarget, setSelectedTarget] = useState<string>(targetList[0]?.id || '');
   const [message, setMessage] = useState<string>('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
     onSend(selectedTarget, message);
@@ -275,8 +281,8 @@ function FastLikeForm({ sentCount, monthlyLikeLimit, targetList, onSend }: FastL
 export default function App() {
   const [currentRole, setCurrentRole] = useState<UserRole>('staff');
   const [currentTab, setCurrentTab] = useState<string>('shift');
-  const [shiftSubTab, setShiftSubTab] = useState<'submit' | 'history'>('submit');
-  const [centerTab, setCenterTab] = useState<'shift' | 'skills' | 'likes'>('shift');
+  const [shiftSubTab, setShiftSubTab] = useState<ShiftSubTab>('submit');
+  const [centerTab, setCenterTab] = useState<CenterTab>('shift');
   
   const [isMoneyVisible, setIsMoneyVisible] = useState<boolean>(false);
   const [isDeadlinePassed, setIsDeadlinePassed] = useState<boolean>(false);
@@ -292,7 +298,7 @@ export default function App() {
   const [callTargetStaff, setCallTargetStaff] = useState<string>('all');
 
   const [sentCount, setSentCount] = useState<number>(1);
-  const [pendingMessages, setPendingMessages] = useState<Array<{ id: number; from: string; to: string; text: string; status: string }>>([
+  const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([
     { id: 1, from: '佐々木 深', to: '堀田 大暉', text: '朝の荷卸し手伝っていただき助かりました！', status: 'pending' },
     { id: 2, from: '奥山 政幸', to: '湯谷 杏吏', text: 'ピッキングの棚番フォロー感謝です！', status: 'approved' },
   ]);
@@ -320,8 +326,8 @@ export default function App() {
 
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-10');
 
-  // カテゴリ別スキルの整理
-  const skillCategories: Record<string, Array<{ full: string; label: string }>> = useMemo(() => {
+  // カテゴリ別スキルの整理 (型を明示して Vercel の推論エラーを防止)
+  const skillCategories = useMemo(() => {
     const map: Record<string, Array<{ full: string; label: string }>> = {};
     SKILL_LIST.forEach((s) => {
       const match = s.match(/【(.*?)】/);
@@ -897,7 +903,7 @@ export default function App() {
             onClick={() => alert('全国19センター・1,000名分のシフト希望統合Excelを出力しました。')}
             className="w-full bg-indigo-700 hover:bg-indigo-800 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center space-x-1 shadow-md mb-4"
           >
-            <span>📥 全国19拠点 統合シフト希望データ (Excel一括出力)</span>
+            <span>📥 全国19拠点 統合シフト希望データ (Excel出力)</span>
           </button>
 
           <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">

@@ -6,6 +6,7 @@ import React, { useState, useMemo, FormEvent } from 'react';
 type UserRole = 'staff' | 'center_admin' | 'super_admin';
 type ShiftSubTab = 'submit' | 'history';
 type CenterTab = 'shift' | 'skills' | 'likes';
+type SuperAdminTab = 'overview' | 'skills' | 'likes';
 type SkillStatus = 'none' | 'pending' | 'approved';
 
 interface WorkRecord {
@@ -49,6 +50,9 @@ interface CenterSummary {
   staffCount: number;
   submittedCount: number;
   fillRate: number;
+  skillRate: number;      // スキル習得進捗率 (%)
+  avgSkills: number;      // 1人あたり平均スキル数
+  likeUsageRate: number;  // いいね運用率 (%)
   alert: string | null;
 }
 
@@ -68,10 +72,12 @@ interface CallReason {
 
 interface PendingMessage {
   id: number;
+  center: string;
   from: string;
   to: string;
   text: string;
   status: 'pending' | 'approved';
+  sentAt: string;
 }
 
 interface SvgIconProps {
@@ -101,28 +107,28 @@ interface NextTierInfo {
 }
 
 // ==========================================
-// 2. マスターデータ
+// 2. 全国19センターのマスターデータ (計1,029名)
 // ==========================================
 const CENTERS_DATA: CenterSummary[] = [
-  { id: 'c150',  name: '千歳',    region: '北海道', staffCount: 30,  submittedCount: 28,  fillRate: 93, alert: null },
-  { id: 'c210',  name: '青森',    region: '東北',   staffCount: 9,   submittedCount: 8,   fillRate: 89, alert: null },
-  { id: 'c440',  name: '宮城',    region: '東北',   staffCount: 31,  submittedCount: 29,  fillRate: 94, alert: null },
-  { id: 'c510',  name: '秋田',    region: '東北',   staffCount: 13,  submittedCount: 12,  fillRate: 92, alert: null },
-  { id: 'c710',  name: '郡山',    region: '東北',   staffCount: 18,  submittedCount: 16,  fillRate: 89, alert: null },
-  { id: 'c920',  name: '佐野',    region: '関東',   staffCount: 100, submittedCount: 92,  fillRate: 92, alert: null },
-  { id: 'c1170', name: '入間',    region: '関東',   staffCount: 114, submittedCount: 105, fillRate: 92, alert: null },
-  { id: 'c1210', name: '千葉',    region: '関東',   staffCount: 65,  submittedCount: 48,  fillRate: 74, alert: 'フォーク乗務不足' },
-  { id: 'c1410', name: '伊勢原',  region: '関東',   staffCount: 153, submittedCount: 142, fillRate: 93, alert: null },
-  { id: 'c1510', name: '新潟',    region: '甲信越', staffCount: 20,  submittedCount: 19,  fillRate: 95, alert: null },
-  { id: 'c1710', name: '金沢',    region: '北陸',   staffCount: 9,   submittedCount: 8,   fillRate: 89, alert: null },
-  { id: 'c2030', name: '長野',    region: '甲信越', staffCount: 25,  submittedCount: 23,  fillRate: 92, alert: null },
-  { id: 'c2410', name: '四日市',  region: '東海',   staffCount: 75,  submittedCount: 70,  fillRate: 93, alert: null },
-  { id: 'c2710', name: '大阪',    region: '関西',   staffCount: 34,  submittedCount: 31,  fillRate: 91, alert: null },
-  { id: 'c2760', name: '岸和田',  region: '関西',   staffCount: 118, submittedCount: 82,  fillRate: 69, alert: '出庫人員不足' },
-  { id: 'c3410', name: '広島',    region: '中国',   staffCount: 22,  submittedCount: 20,  fillRate: 91, alert: null },
-  { id: 'c3730', name: 'さぬき',  region: '四国',   staffCount: 25,  submittedCount: 23,  fillRate: 92, alert: null },
-  { id: 'c4010', name: '朝倉',    region: '九州',   staffCount: 145, submittedCount: 133, fillRate: 92, alert: null },
-  { id: 'c4610', name: '鹿児島',  region: '九州',   staffCount: 23,  submittedCount: 21,  fillRate: 91, alert: null },
+  { id: 'c150',  name: '千歳',    region: '北海道', staffCount: 30,  submittedCount: 28,  fillRate: 93, skillRate: 68, avgSkills: 4.8, likeUsageRate: 85, alert: null },
+  { id: 'c210',  name: '青森',    region: '東北',   staffCount: 9,   submittedCount: 8,   fillRate: 89, skillRate: 72, avgSkills: 5.1, likeUsageRate: 90, alert: null },
+  { id: 'c440',  name: '宮城',    region: '東北',   staffCount: 31,  submittedCount: 29,  fillRate: 94, skillRate: 65, avgSkills: 4.5, likeUsageRate: 78, alert: null },
+  { id: 'c510',  name: '秋田',    region: '東北',   staffCount: 13,  submittedCount: 12,  fillRate: 92, skillRate: 59, avgSkills: 4.0, likeUsageRate: 70, alert: null },
+  { id: 'c710',  name: '郡山',    region: '東北',   staffCount: 18,  submittedCount: 16,  fillRate: 89, skillRate: 61, avgSkills: 4.2, likeUsageRate: 75, alert: null },
+  { id: 'c920',  name: '佐野',    region: '関東',   staffCount: 100, submittedCount: 92,  fillRate: 92, skillRate: 74, avgSkills: 5.3, likeUsageRate: 88, alert: null },
+  { id: 'c1170', name: '入間',    region: '関東',   staffCount: 114, submittedCount: 105, fillRate: 92, skillRate: 70, avgSkills: 4.9, likeUsageRate: 82, alert: null },
+  { id: 'c1210', name: '千葉',    region: '関東',   staffCount: 65,  submittedCount: 48,  fillRate: 74, skillRate: 48, avgSkills: 3.2, likeUsageRate: 55, alert: 'フォーク乗務不足' },
+  { id: 'c1410', name: '伊勢原',  region: '関東',   staffCount: 153, submittedCount: 142, fillRate: 93, skillRate: 76, avgSkills: 5.6, likeUsageRate: 91, alert: null },
+  { id: 'c1510', name: '新潟',    region: '甲信越', staffCount: 20,  submittedCount: 19,  fillRate: 95, skillRate: 66, avgSkills: 4.6, likeUsageRate: 80, alert: null },
+  { id: 'c1710', name: '金沢',    region: '北陸',   staffCount: 9,   submittedCount: 8,   fillRate: 89, skillRate: 70, avgSkills: 4.7, likeUsageRate: 85, alert: null },
+  { id: 'c2030', name: '長野',    region: '甲信越', staffCount: 25,  submittedCount: 23,  fillRate: 92, skillRate: 64, avgSkills: 4.3, likeUsageRate: 76, alert: null },
+  { id: 'c2410', name: '四日市',  region: '東海',   staffCount: 75,  submittedCount: 70,  fillRate: 93, skillRate: 71, avgSkills: 5.0, likeUsageRate: 84, alert: null },
+  { id: 'c2710', name: '大阪',    region: '関西',   staffCount: 34,  submittedCount: 31,  fillRate: 91, skillRate: 69, avgSkills: 4.8, likeUsageRate: 82, alert: null },
+  { id: 'c2760', name: '岸和田',  region: '関西',   staffCount: 118, submittedCount: 82,  fillRate: 69, skillRate: 52, avgSkills: 3.5, likeUsageRate: 60, alert: '出庫人員不足' },
+  { id: 'c3410', name: '広島',    region: '中国',   staffCount: 22,  submittedCount: 20,  fillRate: 91, skillRate: 67, avgSkills: 4.6, likeUsageRate: 81, alert: null },
+  { id: 'c3730', name: 'さぬき',  region: '四国',   staffCount: 25,  submittedCount: 23,  fillRate: 92, skillRate: 63, avgSkills: 4.4, likeUsageRate: 75, alert: null },
+  { id: 'c4010', name: '朝倉',    region: '九州',   staffCount: 145, submittedCount: 133, fillRate: 92, skillRate: 75, avgSkills: 5.4, likeUsageRate: 89, alert: null },
+  { id: 'c4610', name: '鹿児島',  region: '九州',   staffCount: 23,  submittedCount: 21,  fillRate: 91, skillRate: 66, avgSkills: 4.5, likeUsageRate: 79, alert: null },
 ];
 
 const CALL_REASONS: CallReason[] = [
@@ -143,7 +149,7 @@ const SKILL_LIST: string[] = [
 const CURRENT_USER = {
   id: 'user_182',
   name: '佐々木 深',
-  center: 'YDC伊勢原',
+  center: '伊勢原',
   hourlyWage: 1200,
   monthlyLikeLimit: 3,
 };
@@ -174,13 +180,14 @@ const LIKE_TARGET_LIST = [
 ];
 
 const SKILL_TIERS: SkillTier[] = [
-  { name: 'マスター', level: 'S級', range: '16個以上', min: 16, max: 21, count: 50, percentage: 5.0, barColor: 'bg-amber-500', badgeBg: 'bg-amber-100 text-amber-800 border-amber-300' },
-  { name: 'プロ', level: 'A級', range: '12〜15個', min: 12, max: 15, count: 150, percentage: 15.0, barColor: 'bg-purple-500', badgeBg: 'bg-purple-100 text-purple-800 border-purple-300' },
-  { name: 'アドバンス', level: 'B級', range: '8〜11個', min: 8, max: 11, count: 400, percentage: 40.0, barColor: 'bg-indigo-500', badgeBg: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
-  { name: 'スタンダード', level: 'C級', range: '5〜8個', min: 5, max: 8, count: 320, percentage: 32.0, barColor: 'bg-blue-500', badgeBg: 'bg-blue-100 text-blue-800 border-blue-300' },
-  { name: 'エントリー', level: 'D級', range: '0～4個', min: 0, max: 4, count: 80, percentage: 8.0, barColor: 'bg-slate-400', badgeBg: 'bg-slate-100 text-slate-700 border-slate-300' },
+  { name: 'マスター', level: 'S級', range: '10個以上', min: 10, max: 21, count: 52, percentage: 5.1, barColor: 'bg-amber-500', badgeBg: 'bg-amber-100 text-amber-800 border-amber-300' },
+  { name: 'アドバンス', level: 'A級', range: '7〜9個', min: 7, max: 9, count: 160, percentage: 15.5, barColor: 'bg-purple-500', badgeBg: 'bg-purple-100 text-purple-800 border-purple-300' },
+  { name: 'ミドル', level: 'B級', range: '4〜6個', min: 4, max: 6, count: 415, percentage: 40.3, barColor: 'bg-indigo-500', badgeBg: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
+  { name: 'スタンダード', level: 'C級', range: '1〜3個', min: 1, max: 3, count: 322, percentage: 31.3, barColor: 'bg-blue-500', badgeBg: 'bg-blue-100 text-blue-800 border-blue-300' },
+  { name: 'エントリー', level: 'D級', range: '0個', min: 0, max: 0, count: 80, percentage: 7.8, barColor: 'bg-slate-400', badgeBg: 'bg-slate-100 text-slate-700 border-slate-300' },
 ];
 
+// 個人画面用：過去すべての月別勤務履歴データ
 const WORK_HISTORY: Record<string, MonthData> = {
   '2026-10': {
     monthLabel: '2026年10月度', cumulativeHours: 642, cumulativeSalary: 770400,
@@ -192,15 +199,54 @@ const WORK_HISTORY: Record<string, MonthData> = {
       { date: '10/08 (木)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
       { date: '10/09 (金)', hours: 5, timeRange: '11:00 - 17:00 (休1h)' },
       { date: '10/12 (月)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
+      { date: '10/14 (水)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
+      { date: '10/16 (金)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
     ]
   },
   '2026-09': {
-    monthLabel: '2026年9月度', cumulativeHours: 536, cumulativeSalary: 643200,
+    monthLabel: '2026年9月度', cumulativeHours: 579, cumulativeSalary: 694800,
     records: [
       { date: '09/01 (火)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
       { date: '09/03 (木)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
       { date: '09/04 (金)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
       { date: '09/07 (月)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
+      { date: '09/10 (木)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
+      { date: '09/15 (火)', hours: 6, timeRange: '10:00 - 17:00 (休1h)' },
+    ]
+  },
+  '2026-08': {
+    monthLabel: '2026年8月度', cumulativeHours: 512, cumulativeSalary: 614400,
+    records: [
+      { date: '08/03 (月)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
+      { date: '08/05 (水)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
+      { date: '08/07 (金)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
+      { date: '08/17 (月)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
+      { date: '08/20 (木)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
+    ]
+  },
+  '2026-07': {
+    monthLabel: '2026年7月度', cumulativeHours: 445, cumulativeSalary: 534000,
+    records: [
+      { date: '07/02 (木)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
+      { date: '07/06 (月)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
+      { date: '07/09 (木)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
+      { date: '07/15 (水)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
+    ]
+  },
+  '2026-06': {
+    monthLabel: '2026年6月度', cumulativeHours: 375, cumulativeSalary: 450000,
+    records: [
+      { date: '06/03 (水)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
+      { date: '06/05 (金)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
+      { date: '06/10 (水)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
+    ]
+  },
+  '2026-05': {
+    monthLabel: '2026年5月度', cumulativeHours: 310, cumulativeSalary: 372000,
+    records: [
+      { date: '05/08 (金)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
+      { date: '05/12 (火)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
+      { date: '05/15 (金)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
     ]
   }
 };
@@ -302,6 +348,7 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<string>('shift');
   const [shiftSubTab, setShiftSubTab] = useState<ShiftSubTab>('submit');
   const [centerTab, setCenterTab] = useState<CenterTab>('shift');
+  const [superAdminTab, setSuperAdminTab] = useState<SuperAdminTab>('overview');
   
   const [isMoneyVisible, setIsMoneyVisible] = useState<boolean>(false);
   const [isDeadlinePassed, setIsDeadlinePassed] = useState<boolean>(false);
@@ -317,9 +364,15 @@ export default function App() {
   const [callTargetStaff, setCallTargetStaff] = useState<string>('all');
 
   const [sentCount, setSentCount] = useState<number>(1);
-  const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([
-    { id: 1, from: '佐々木 深', to: '堀田 大暉', text: '朝の荷卸し手伝っていただき助かりました！', status: 'pending' },
-    { id: 2, from: '奥山 政幸', to: '湯谷 杏吏', text: 'ピッキングの棚番フォロー感謝です！', status: 'approved' },
+  
+  // 全社サンクスカード・メッセージ履歴
+  const [allMessages, setAllMessages] = useState<PendingMessage[]>([
+    { id: 1, center: '伊勢原', from: '佐々木 深', to: '堀田 大暉', text: '朝の荷卸し手伝っていただき助かりました！', status: 'approved', sentAt: '10/29 08:45' },
+    { id: 2, center: '伊勢原', from: '奥山 政幸', to: '湯谷 杏吏', text: 'ピッキングの棚番フォロー感謝です！', status: 'approved', sentAt: '10/29 11:20' },
+    { id: 3, center: '佐野', from: '佐藤 健', to: '高橋 涼介', text: 'フォークリフトの荷受けを素早く代わってくれて助かりました。', status: 'approved', sentAt: '10/29 14:10' },
+    { id: 4, center: '朝倉', from: '田中 優子', to: '原田 翔太', text: '新発注システムの操作を優しく教えていただきありがとうございました。', status: 'approved', sentAt: '10/29 16:30' },
+    { id: 5, center: '千歳', from: '工藤 雄大', to: '三浦 健太', text: '低温庫の防寒手袋を準備してくれてありがとうございます！', status: 'approved', sentAt: '10/30 09:15' },
+    { id: 6, center: '伊勢原', from: '佐々木 深', to: '中田 有祐', text: '検品作業の最終確認ダブルチェック助かりました！', status: 'pending', sentAt: '10/30 11:00' },
   ]);
   
   const [mySkillStatus, setMySkillStatus] = useState<Record<string, SkillStatus>>({
@@ -343,9 +396,9 @@ export default function App() {
   const HOURS: number[] = [9, 10, 11, 12, 13, 14, 15, 16]; 
   const TOTAL_DAYS = 30;
 
+  // 個人画面用：表示月度（全履歴から選択可能）
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-10');
 
-  // カテゴリ別スキルの整理 (厳密な型定義)
   const skillCategories: Record<string, SkillCategoryItem[]> = useMemo(() => {
     const map: Record<string, SkillCategoryItem[]> = {};
     SKILL_LIST.forEach((s) => {
@@ -397,6 +450,7 @@ export default function App() {
 
   const totalPlannedSalary = totalPlannedHours * CURRENT_USER.hourlyWage;
   
+  // 選択された月度の勤務データ
   const currentMonthData = useMemo(() => {
     return WORK_HISTORY[selectedMonth] || { monthLabel: '', cumulativeHours: 0, cumulativeSalary: 0, records: [] };
   }, [selectedMonth]);
@@ -439,14 +493,16 @@ export default function App() {
     if (!targetObj) return;
 
     const newMessage: PendingMessage = { 
-      id: Date.now(), 
+      id: Date.now(),
+      center: '伊勢原',
       from: CURRENT_USER.name, 
       to: targetObj.name, 
       text: message, 
-      status: 'pending' 
+      status: 'pending',
+      sentAt: '本日 17:35'
     };
 
-    setPendingMessages(prev => [newMessage, ...prev]);
+    setAllMessages(prev => [newMessage, ...prev]);
     setSentCount(prev => prev + 1);
     alert('所長宛てに送信しました。承認後に相手へ届きます。');
   };
@@ -457,7 +513,7 @@ export default function App() {
   };
 
   const handleApproveLike = (id: number) => {
-    setPendingMessages(prev => prev.map(m => m.id === id ? { ...m, status: 'approved' } : m));
+    setAllMessages(prev => prev.map(m => m.id === id ? { ...m, status: 'approved' } : m));
     alert('サンクスカードを承認しました。相手のスマホへ通知が配信されます。');
   };
 
@@ -566,12 +622,14 @@ export default function App() {
         </div>
       )}
 
-      {/* 画面1：パート画面 */}
+      {/* =========================================================================
+          画面1：パート画面
+          ========================================================================= */}
       {currentRole === 'staff' && (
         <>
           <header className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between shadow-md shrink-0 w-full">
             <div>
-              <div className="text-xs text-slate-400">{CURRENT_USER.center}</div>
+              <div className="text-xs text-slate-400">{CURRENT_USER.center}センター</div>
               <div className="text-sm font-bold flex items-center">
                 {CURRENT_USER.name} さん 
                 <button 
@@ -644,7 +702,7 @@ export default function App() {
               <div className="w-full space-y-3">
                 <div className="flex bg-slate-200 p-1 rounded-xl w-full box-border">
                   <button onClick={() => setShiftSubTab('submit')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${shiftSubTab === 'submit' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}>希望提出</button>
-                  <button onClick={() => setShiftSubTab('history')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${shiftSubTab === 'history' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}>実績・給与明細</button>
+                  <button onClick={() => setShiftSubTab('history')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${shiftSubTab === 'history' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}>全月度 勤務実績</button>
                 </div>
 
                 {shiftSubTab === 'submit' && (
@@ -720,22 +778,69 @@ export default function App() {
                   </div>
                 )}
 
+                {/* 個人画面：過去の勤務実績を全て月別に閲覧 */}
                 {shiftSubTab === 'history' && (
                   <div className="space-y-3 w-full">
+                    <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
+                      <span className="text-xs font-bold text-slate-700">表示月度を選択（全履歴）</span>
+                      <select 
+                        value={selectedMonth} 
+                        onChange={(e) => setSelectedMonth(e.target.value)} 
+                        className="bg-indigo-50 border border-indigo-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-indigo-900 focus:outline-none"
+                      >
+                        {Object.keys(WORK_HISTORY).map((mKey) => (
+                          <option key={mKey} value={mKey}>
+                            {WORK_HISTORY[mKey].monthLabel}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-2.5 w-full">
                       <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
                         <div className="text-[10px] font-bold text-indigo-600 mb-1">【単月】{currentMonthData.monthLabel}</div>
-                        <div className="text-xs text-slate-500">勤務時間</div>
-                        <div className="text-lg font-black text-slate-800">{monthlyWorkedHours} 時間</div>
-                        <div className="text-xs text-slate-500 mt-2">給与支給額</div>
+                        <div className="text-xs text-slate-500">勤務時間合計</div>
+                        <div className="text-lg font-black text-slate-800">{monthlyWorkedHours} <span className="text-xs font-normal">時間</span></div>
+                        <div className="text-xs text-slate-500 mt-2 flex items-center cursor-pointer" onClick={() => setIsMoneyVisible(!isMoneyVisible)}>
+                          給与支給額 {isMoneyVisible ? <IconEye /> : <IconEyeOff />}
+                        </div>
                         <div className="text-lg font-black text-emerald-600">{displayMoney(monthlySalary)}</div>
                       </div>
                       <div className="bg-slate-900 text-white p-3.5 rounded-xl border border-slate-800 shadow-sm">
                         <div className="text-[10px] font-bold text-amber-400 mb-1">【年間累積】</div>
-                        <div className="text-xs text-slate-400">累計時間</div>
-                        <div className="text-lg font-black">{currentMonthData.cumulativeHours} 時間</div>
-                        <div className="text-xs text-slate-400 mt-2">累計支給額</div>
+                        <div className="text-xs text-slate-400">累計勤務時間</div>
+                        <div className="text-lg font-black">{currentMonthData.cumulativeHours} <span className="text-xs font-normal">時間</span></div>
+                        <div className="text-xs text-slate-400 mt-2 flex items-center cursor-pointer" onClick={() => setIsMoneyVisible(!isMoneyVisible)}>
+                          累計支給額 {isMoneyVisible ? <IconEye /> : <IconEyeOff />}
+                        </div>
                         <div className="text-lg font-black text-amber-300">{displayMoney(currentMonthData.cumulativeSalary)}</div>
+                      </div>
+                    </div>
+
+                    {/* 日別実績明細 */}
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 w-full box-border">
+                      <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-xs font-bold text-slate-700">日別実績明細（{currentMonthData.records.length}日稼働）</h3>
+                        <button onClick={() => setIsMoneyVisible(!isMoneyVisible)} className="text-[10px] flex items-center text-slate-400 border border-slate-200 px-2 py-0.5 rounded bg-slate-50">
+                          金額表示 {isMoneyVisible ? <IconEye /> : <IconEyeOff />}
+                        </button>
+                      </div>
+                      <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto pr-1">
+                        {currentMonthData.records.map((r, idx) => {
+                          const dailyPay = r.hours * CURRENT_USER.hourlyWage;
+                          return (
+                            <div key={idx} className="py-2.5 flex justify-between items-center text-xs">
+                              <div>
+                                <div className="font-bold text-slate-800">{r.date}</div>
+                                <div className="text-[10px] text-slate-400">{r.timeRange}</div>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-bold text-slate-700">{r.hours} 時間</div>
+                                <div className="text-[11px] font-bold text-emerald-600">{displayMoney(dailyPay)}</div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -792,7 +897,7 @@ export default function App() {
                 </div>
 
                 <div className="w-full bg-white p-4 rounded-xl shadow-sm border border-slate-200 box-border">
-                  <h3 className="text-xs font-bold text-slate-800 mb-2">全国パート社員 スキル分布図（1,000名）</h3>
+                  <h3 className="text-xs font-bold text-slate-800 mb-2">全国パート社員 スキル分布図（1,029名）</h3>
                   <div className="bg-slate-900 text-white p-3 rounded-xl mb-3 flex justify-between items-center">
                     <div>
                       <div className="text-[10px] text-slate-400">現在地</div>
@@ -832,7 +937,9 @@ export default function App() {
         </>
       )}
 
-      {/* 画面2：所長画面 */}
+      {/* =========================================================================
+          画面2：所長画面 (伊勢原 153名)
+          ========================================================================= */}
       {currentRole === 'center_admin' && (
         <div className="flex-1 overflow-y-auto px-4 py-4 pb-12 w-full box-border">
           <div className="bg-amber-600 text-white p-4 rounded-2xl shadow-md mb-4">
@@ -840,8 +947,8 @@ export default function App() {
               <span className="text-xs bg-black/20 px-2 py-0.5 rounded font-bold">拠点長ダッシュボード</span>
               <span className="text-xs font-mono">管理者: 木村 裕一 所長</span>
             </div>
-            <h1 className="text-lg font-black">YDC伊勢原 管理画面</h1>
-            <p className="text-xs text-amber-100 mt-1">自センター在籍: 31名 （他センターのデータはアクセス不可）</p>
+            <h1 className="text-lg font-black">伊勢原センター 管理画面</h1>
+            <p className="text-xs text-amber-100 mt-1">自センター在籍: 153名 （他センターのデータはアクセス不可）</p>
           </div>
 
           <div className="flex bg-slate-200 p-1 rounded-xl mb-4 w-full">
@@ -858,25 +965,25 @@ export default function App() {
               <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-bold text-sm text-slate-800">翌週シフト提出状況</h3>
-                  <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">充足率: 92%</span>
+                  <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">充足率: 93%</span>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center">
                     <span className="text-[10px] text-slate-500 block">提出済み</span>
-                    <span className="text-xl font-black text-indigo-600">28 <span className="text-xs font-normal text-slate-600">/ 31名</span></span>
+                    <span className="text-xl font-black text-indigo-600">142 <span className="text-xs font-normal text-slate-600">/ 153名</span></span>
                   </div>
                   <div className="bg-rose-50 p-3 rounded-lg border border-rose-200 text-center">
                     <span className="text-[10px] text-rose-600 block">未提出者</span>
-                    <span className="text-xl font-black text-rose-600">3 <span className="text-xs font-normal text-slate-600">名</span></span>
+                    <span className="text-xl font-black text-rose-600">11 <span className="text-xs font-normal text-slate-600">名</span></span>
                   </div>
                 </div>
 
                 <button 
-                  onClick={() => alert('YDC伊勢原（31名）専用のシフト集計Excelファイルをダウンロードしました。')}
+                  onClick={() => alert('伊勢原センター（153名）専用のシフト集計Excelファイルをダウンロードしました。')}
                   className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 rounded-lg text-xs flex items-center justify-center space-x-1 shadow"
                 >
-                  <span>📊 伊勢原センター専用Excel出力</span>
+                  <span>📊 伊勢原センター専用Excel出力 (ヒートマップ付き)</span>
                 </button>
               </div>
             </div>
@@ -913,7 +1020,7 @@ export default function App() {
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
               <h3 className="font-bold text-sm text-slate-800 mb-2">サンクスカード承認（所長検閲）</h3>
               <div className="space-y-2">
-                {pendingMessages.filter(m => m.status === 'pending').map((m) => (
+                {allMessages.filter(m => m.center === '伊勢原' && m.status === 'pending').map((m) => (
                   <div key={m.id} className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs">
                     <div className="font-bold text-slate-700 mb-1">{m.from} ➔ {m.to} 宛て</div>
                     <p className="text-slate-600 mb-2 bg-white p-2 rounded border border-amber-100">{m.text}</p>
@@ -928,73 +1035,197 @@ export default function App() {
         </div>
       )}
 
-      {/* 画面3：本部画面 */}
+      {/* =========================================================================
+          画面3：本部画面 (全国19センター・1,029名 横断集計・分析)
+          ========================================================================= */}
       {currentRole === 'super_admin' && (
         <div className="flex-1 overflow-y-auto px-4 py-4 pb-12 w-full box-border">
-          <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-md mb-4 border border-slate-800">
+          <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-md mb-3 border border-slate-800">
             <div className="flex justify-between items-center mb-1">
               <span className="text-xs bg-emerald-600 px-2 py-0.5 rounded font-bold">SC本部 最高管理権限</span>
               <span className="text-xs text-slate-400 font-mono">全国19拠点 総合統括</span>
             </div>
             <h1 className="text-lg font-black">全国19センター 総合分析</h1>
-            <p className="text-xs text-slate-300 mt-1">全社パート総数: 1,000名 / 総提出率: 92.4%</p>
+            <p className="text-xs text-slate-300 mt-0.5">全社パート総数: 1,029名 / 総提出率: 92.3%</p>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            <div className="bg-white p-2.5 rounded-xl border border-slate-200 text-center shadow-xs">
-              <span className="text-[9px] text-slate-500 block">全国総在籍</span>
-              <span className="text-base font-black text-slate-800">1,000 <span className="text-[10px] font-normal">名</span></span>
-            </div>
-            <div className="bg-white p-2.5 rounded-xl border border-slate-200 text-center shadow-xs">
-              <span className="text-[9px] text-slate-500 block">提出済み</span>
-              <span className="text-base font-black text-indigo-600">924 <span className="text-[10px] font-normal">名</span></span>
-            </div>
-            <div className="bg-rose-50 p-2.5 rounded-xl border border-rose-200 text-center shadow-xs">
-              <span className="text-[9px] text-rose-600 block">要対応拠点</span>
-              <span className="text-base font-black text-rose-600">3 <span className="text-[10px] font-normal">拠点</span></span>
-            </div>
+          {/* 本部用タブ切替 */}
+          <div className="flex bg-slate-200 p-1 rounded-xl mb-3 w-full">
+            <button 
+              onClick={() => setSuperAdminTab('overview')} 
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${superAdminTab === 'overview' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}
+            >
+              拠点サマリー
+            </button>
+            <button 
+              onClick={() => setSuperAdminTab('skills')} 
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${superAdminTab === 'skills' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}
+            >
+              スキル習得率
+            </button>
+            <button 
+              onClick={() => setSuperAdminTab('likes')} 
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${superAdminTab === 'likes' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}
+            >
+              いいね・メッセージ
+            </button>
           </div>
 
-          <button 
-            onClick={() => alert('全国19センター・1,000名分のシフト希望統合Excelを出力しました。')}
-            className="w-full bg-indigo-700 hover:bg-indigo-800 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center space-x-1 shadow-md mb-4"
-          >
-            <span>📥 全国19拠点 統合シフト希望データ (Excel一括出力)</span>
-          </button>
-
-          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-            <h3 className="font-bold text-xs text-slate-800 mb-2">全国19拠点 シフト充足率・稼働状況一覧</h3>
-            <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
-              {CENTERS_DATA.map((c) => (
-                <div key={c.id} className="py-2.5 flex items-center justify-between text-xs">
-                  <div>
-                    <div className="flex items-center space-x-1.5">
-                      <span className="font-bold text-slate-800">{c.name}</span>
-                      <span className="text-[9px] text-slate-400 bg-slate-100 px-1 py-0.2 rounded">{c.region}</span>
-                    </div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">
-                      提出: {c.submittedCount}/{c.staffCount}名 ({Math.round((c.submittedCount/c.staffCount)*100)}%)
-                    </div>
-                    {c.alert && (
-                      <span className="inline-block mt-0.5 text-[9px] bg-red-100 text-red-700 font-bold px-1.5 py-0.2 rounded">
-                        ⚠️ {c.alert}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="text-right">
-                    <span className={`text-xs font-black px-2 py-0.5 rounded ${
-                      c.fillRate >= 90 ? 'bg-emerald-100 text-emerald-800' :
-                      c.fillRate >= 80 ? 'bg-amber-100 text-amber-800' :
-                      'bg-rose-100 text-rose-800'
-                    }`}>
-                      充足率 {c.fillRate}%
-                    </span>
-                  </div>
+          {/* 1. 拠点サマリータブ */}
+          {superAdminTab === 'overview' && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200 text-center shadow-xs">
+                  <span className="text-[9px] text-slate-500 block">全国総在籍</span>
+                  <span className="text-base font-black text-slate-800">1,029 <span className="text-[10px] font-normal">名</span></span>
                 </div>
-              ))}
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200 text-center shadow-xs">
+                  <span className="text-[9px] text-slate-500 block">提出済み</span>
+                  <span className="text-base font-black text-indigo-600">950 <span className="text-[10px] font-normal">名</span></span>
+                </div>
+                <div className="bg-rose-50 p-2.5 rounded-xl border border-rose-200 text-center shadow-xs">
+                  <span className="text-[9px] text-rose-600 block">要対応拠点</span>
+                  <span className="text-base font-black text-rose-600">2 <span className="text-[10px] font-normal">拠点</span></span>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => alert('全国19センター・1,029名分のシフト希望統合Excelを出力しました。')}
+                className="w-full bg-indigo-700 hover:bg-indigo-800 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center space-x-1 shadow-md"
+              >
+                <span>📥 全国19拠点 統合シフト希望データ (Excel一括出力)</span>
+              </button>
+
+              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                <h3 className="font-bold text-xs text-slate-800 mb-2">全国19拠点 シフト充足率・稼働状況一覧</h3>
+                <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
+                  {CENTERS_DATA.map((c) => (
+                    <div key={c.id} className="py-2.5 flex items-center justify-between text-xs">
+                      <div>
+                        <div className="flex items-center space-x-1.5">
+                          <span className="font-bold text-slate-800">{c.name}</span>
+                          <span className="text-[9px] text-slate-400 bg-slate-100 px-1 py-0.2 rounded">{c.region}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">
+                          提出: {c.submittedCount}/{c.staffCount}名 ({Math.round((c.submittedCount/c.staffCount)*100)}%)
+                        </div>
+                        {c.alert && (
+                          <span className="inline-block mt-0.5 text-[9px] bg-red-100 text-red-700 font-bold px-1.5 py-0.2 rounded">
+                            ⚠️ {c.alert}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="text-right">
+                        <span className={`text-xs font-black px-2 py-0.5 rounded ${
+                          c.fillRate >= 90 ? 'bg-emerald-100 text-emerald-800' :
+                          c.fillRate >= 80 ? 'bg-amber-100 text-amber-800' :
+                          'bg-rose-100 text-rose-800'
+                        }`}>
+                          充足率 {c.fillRate}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* 2. スキル習得率タブ（本部機能追加） */}
+          {superAdminTab === 'skills' && (
+            <div className="space-y-3">
+              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-bold text-xs text-slate-800">全19センター スキル習得進捗・多能工化率</h3>
+                  <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-bold">全社平均: 4.8個</span>
+                </div>
+                <p className="text-[10px] text-slate-500 mb-3">各拠点のパート従業員におけるスキル習得進捗と1人あたり平均保有数です。</p>
+
+                <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
+                  {CENTERS_DATA.map((c) => (
+                    <div key={c.id} className="py-2.5 flex items-center justify-between text-xs">
+                      <div>
+                        <div className="flex items-center space-x-1.5">
+                          <span className="font-bold text-slate-800">{c.name}</span>
+                          <span className="text-[9px] text-slate-400 bg-slate-100 px-1 py-0.2 rounded">{c.staffCount}名</span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">
+                          1人あたり平均: <strong className="text-slate-700">{c.avgSkills} 個</strong>
+                        </div>
+                      </div>
+
+                      <div className="text-right flex items-center space-x-2">
+                        <div className="w-16 bg-slate-200 rounded-full h-2 overflow-hidden hidden sm:block">
+                          <div className="bg-indigo-600 h-full" style={{ width: `${c.skillRate}%` }} />
+                        </div>
+                        <span className={`text-xs font-black px-2 py-0.5 rounded ${
+                          c.skillRate >= 70 ? 'bg-emerald-100 text-emerald-800' :
+                          c.skillRate >= 60 ? 'bg-indigo-100 text-indigo-800' :
+                          'bg-amber-100 text-amber-800'
+                        }`}>
+                          進捗 {c.skillRate}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3. いいね運用率 ＆ 全社メッセージ一覧タブ（本部機能追加） */}
+          {superAdminTab === 'likes' && (
+            <div className="space-y-3">
+              {/* 各センターのいいね運用率一覧 */}
+              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex justify-between items-center mb-1">
+                  <h3 className="font-bold text-xs text-slate-800">全センター いいね（サンクスカード）運用率</h3>
+                  <span className="text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded font-bold">全社平均: 81%</span>
+                </div>
+                <p className="text-[10px] text-slate-500 mb-2">各センターの月間送信枠（月3件）に対する消化率です。</p>
+
+                <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                  {CENTERS_DATA.map((c) => (
+                    <div key={c.id} className="p-2 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between text-xs">
+                      <span className="font-bold text-slate-700 truncate">{c.name}</span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                        c.likeUsageRate >= 80 ? 'bg-rose-100 text-rose-700' :
+                        c.likeUsageRate >= 65 ? 'bg-slate-200 text-slate-700' :
+                        'bg-amber-100 text-amber-800'
+                      }`}>
+                        {c.likeUsageRate}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 全国サンクスカード メッセージ履歴一覧 */}
+              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-bold text-xs text-slate-800">全国サンクスカード メッセージ履歴（全社）</h3>
+                  <span className="text-[10px] text-slate-400">最新順</span>
+                </div>
+
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {allMessages.map((m) => (
+                    <div key={m.id} className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+                      <div className="flex justify-between items-center mb-1">
+                        <div className="flex items-center space-x-1.5">
+                          <span className="bg-slate-800 text-white font-bold text-[9px] px-1.5 py-0.2 rounded">{m.center}</span>
+                          <span className="font-bold text-slate-800">{m.from} ➔ {m.to}</span>
+                        </div>
+                        <span className="text-[9px] text-slate-400">{m.sentAt}</span>
+                      </div>
+                      <p className="text-slate-600 bg-white p-2 rounded border border-slate-100 leading-tight">{m.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       )}
 

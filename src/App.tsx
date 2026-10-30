@@ -37,7 +37,6 @@ interface SkillTier {
   max: number;
   count: number;
   percentage: number;
-  color: string;
   barColor: string;
   badgeBg: string;
 }
@@ -48,7 +47,7 @@ interface CenterSummary {
   region: string;
   staffCount: number;
   submittedCount: number;
-  fillRate: number; // 充足率 (%)
+  fillRate: number;
   alert: string | null;
 }
 
@@ -59,8 +58,15 @@ interface PendingSkillApproval {
   appliedAt: string;
 }
 
+interface CallReason {
+  id: number;
+  label: string;
+  priority: string;
+  color: string;
+}
+
 // ==========================================
-// 1. マスターデータ（19センター・1,000名規模）
+// 1. マスターデータ
 // ==========================================
 const CENTERS_DATA: CenterSummary[] = [
   { id: 'c01', name: 'YDC伊勢原', region: '関東', staffCount: 31, submittedCount: 28, fillRate: 92, alert: null },
@@ -84,14 +90,14 @@ const CENTERS_DATA: CenterSummary[] = [
   { id: 'c19', name: '鳥栖ロジスティクス', region: '九州', staffCount: 69, submittedCount: 65, fillRate: 93, alert: null },
 ];
 
-const CALL_REASONS = [
+const CALL_REASONS: CallReason[] = [
   { id: 1, label: '【緊急】 怪我・トラブル', priority: '高', color: 'bg-red-500 text-white' },
   { id: 2, label: '【優先】 機器不良', priority: '中', color: 'bg-amber-500 text-white' },
   { id: 3, label: '【確認】 在庫確認', priority: '低', color: 'bg-blue-500 text-white' },
   { id: 4, label: '【相談】 その他', priority: '低', color: 'bg-slate-600 text-white' },
 ];
 
-const SKILL_LIST = [
+const SKILL_LIST: string[] = [
   '【発注】入力業務', '【発注】新発注補助Ｓ操作', '【発注】直送発注', '【発注】移動対応',
   '【入荷】入荷照合', '【棚入】棚入', '【棚入】棚番メンテナンス', '【棚入】セット組み・得意先依頼加工',
   '【出荷】受注引当（集計）', '【出荷】ピッキング ＨＴ', '【出荷】ピッキングリスト', '【出荷】ケースラベル',
@@ -133,11 +139,11 @@ const LIKE_TARGET_LIST = [
 ];
 
 const SKILL_TIERS: SkillTier[] = [
-  { name: 'マスター', level: 'S級', range: '10個以上', min: 10, max: 21, count: 50, percentage: 5.0, color: 'text-amber-600', barColor: 'bg-amber-500', badgeBg: 'bg-amber-100 text-amber-800 border-amber-300' },
-  { name: 'アドバンス', level: 'A級', range: '7〜9個', min: 7, max: 9, count: 150, percentage: 15.0, color: 'text-purple-600', barColor: 'bg-purple-500', badgeBg: 'bg-purple-100 text-purple-800 border-purple-300' },
-  { name: 'ミドル', level: 'B級', range: '4〜6個', min: 4, max: 6, count: 400, percentage: 40.0, color: 'text-indigo-600', barColor: 'bg-indigo-500', badgeBg: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
-  { name: 'スタンダード', level: 'C級', range: '1〜3個', min: 1, max: 3, count: 320, percentage: 32.0, color: 'text-blue-600', barColor: 'bg-blue-500', badgeBg: 'bg-blue-100 text-blue-800 border-blue-300' },
-  { name: 'エントリー', level: 'D級', range: '0個', min: 0, max: 0, count: 80, percentage: 8.0, color: 'text-slate-500', barColor: 'bg-slate-400', badgeBg: 'bg-slate-100 text-slate-700 border-slate-300' },
+  { name: 'マスター', level: 'S級', range: '10個以上', min: 10, max: 21, count: 50, percentage: 5.0, barColor: 'bg-amber-500', badgeBg: 'bg-amber-100 text-amber-800 border-amber-300' },
+  { name: 'アドバンス', level: 'A級', range: '7〜9個', min: 7, max: 9, count: 150, percentage: 15.0, barColor: 'bg-purple-500', badgeBg: 'bg-purple-100 text-purple-800 border-purple-300' },
+  { name: 'ミドル', level: 'B級', range: '4〜6個', min: 4, max: 6, count: 400, percentage: 40.0, barColor: 'bg-indigo-500', badgeBg: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
+  { name: 'スタンダード', level: 'C級', range: '1〜3個', min: 1, max: 3, count: 320, percentage: 32.0, barColor: 'bg-blue-500', badgeBg: 'bg-blue-100 text-blue-800 border-blue-300' },
+  { name: 'エントリー', level: 'D級', range: '0個', min: 0, max: 0, count: 80, percentage: 8.0, barColor: 'bg-slate-400', badgeBg: 'bg-slate-100 text-slate-700 border-slate-300' },
 ];
 
 const WORK_HISTORY: Record<string, MonthData> = {
@@ -167,9 +173,25 @@ const WORK_HISTORY: Record<string, MonthData> = {
 // ==========================================
 // 2. 共通アイコン
 // ==========================================
-const SvgIcon = ({ path }: { path: string }) => (<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={path} /></svg>);
-const IconEye = () => (<svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>);
-const IconEyeOff = () => (<svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>);
+const SvgIcon = ({ path }: { path: string }) => (
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={path} />
+  </svg>
+);
+
+const IconEye = () => (
+  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+  </svg>
+);
+
+const IconEyeOff = () => (
+  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+  </svg>
+);
+
 const IconChevronDown = ({ open }: { open: boolean }) => (
   <svg className={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
@@ -183,15 +205,17 @@ const NAV_TABS = [
   { id: 'skills', label: 'スキル/分布', color: 'text-amber-600', path: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z' },
 ];
 
-// 高速化：いいね送信フォーム
-interface LikeFormProps {
+// ==========================================
+// 3. 高速化：いいね送信フォーム
+// ==========================================
+interface FastLikeFormProps {
   sentCount: number;
   monthlyLikeLimit: number;
   targetList: Array<{ id: string; name: string }>;
   onSend: (targetId: string, message: string) => void;
 }
 
-const FastLikeForm: React.FC<LikeFormProps> = React.memo(({ sentCount, monthlyLikeLimit, targetList, onSend }) => {
+function FastLikeForm({ sentCount, monthlyLikeLimit, targetList, onSend }: FastLikeFormProps) {
   const [selectedTarget, setSelectedTarget] = useState<string>(targetList[0]?.id || '');
   const [message, setMessage] = useState<string>('');
 
@@ -243,26 +267,20 @@ const FastLikeForm: React.FC<LikeFormProps> = React.memo(({ sentCount, monthlyLi
       </button>
     </form>
   );
-});
+}
 
 // ==========================================
-// 3. アプリケーション本体
+// 4. アプリケーション本体
 // ==========================================
 export default function App() {
-  // ★最重要：現在のログイン役職（ロール）シミュレーター
   const [currentRole, setCurrentRole] = useState<UserRole>('staff');
-  
-  // パート用ナビゲーションタブ
   const [currentTab, setCurrentTab] = useState<string>('shift');
   const [shiftSubTab, setShiftSubTab] = useState<'submit' | 'history'>('submit');
-  
-  // 所長用タブ
   const [centerTab, setCenterTab] = useState<'shift' | 'skills' | 'likes'>('shift');
   
   const [isMoneyVisible, setIsMoneyVisible] = useState<boolean>(false);
   const [isDeadlinePassed, setIsDeadlinePassed] = useState<boolean>(false);
   
-  // 社員呼出の永続状態
   const [activeCall, setActiveCall] = useState<ActiveCall | null>({
     id: 1,
     targetName: '木村裕一 所長',
@@ -273,21 +291,18 @@ export default function App() {
   });
   const [callTargetStaff, setCallTargetStaff] = useState<string>('all');
 
-  // いいね状態
   const [sentCount, setSentCount] = useState<number>(1);
   const [pendingMessages, setPendingMessages] = useState<Array<{ id: number; from: string; to: string; text: string; status: string }>>([
     { id: 1, from: '佐々木 深', to: '堀田 大暉', text: '朝の荷卸し手伝っていただき助かりました！', status: 'pending' },
     { id: 2, from: '奥山 政幸', to: '湯谷 杏吏', text: 'ピッキングの棚番フォロー感謝です！', status: 'approved' },
   ]);
   
-  // スキル状態（パート自身のもの）
   const [mySkillStatus, setMySkillStatus] = useState<Record<string, SkillStatus>>({
     '【入荷】入荷照合': 'approved',
     '【棚入】棚入': 'approved',
     '【出荷】ピッキング ＨＴ': 'approved'
   });
 
-  // 所長画面用のスキル承認申請待ちリスト
   const [pendingSkillApprovals, setPendingSkillApprovals] = useState<PendingSkillApproval[]>([
     { id: 101, staffName: '佐々木 深', skillName: '【その他】フォークリフト乗務', appliedAt: '昨日 17:30' },
     { id: 102, staffName: '奥山 政幸', skillName: '【出荷】受注引当（集計）', appliedAt: '本日 09:15' },
@@ -296,7 +311,6 @@ export default function App() {
 
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({ '出荷': true });
   
-  // シフト状態
   const [shiftDates, setShiftDates] = useState<Record<number, number[]>>({});
   const [shiftSubmitted, setShiftSubmitted] = useState<boolean>(false);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
@@ -306,8 +320,8 @@ export default function App() {
 
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-10');
 
-  // メモ化・計算
-  const skillCategories = useMemo(() => {
+  // カテゴリ別スキルの整理
+  const skillCategories: Record<string, Array<{ full: string; label: string }>> = useMemo(() => {
     const map: Record<string, Array<{ full: string; label: string }>> = {};
     SKILL_LIST.forEach((s) => {
       const match = s.match(/【(.*?)】/);
@@ -352,8 +366,7 @@ export default function App() {
   const displayMoney = (amount: number) => isMoneyVisible ? `¥${amount.toLocaleString()}` : '¥***,***';
   const isSunday = (day: number) => (day - 1) % 7 === 0;
 
-  // 呼出処理
-  const handleCallStaff = (reason: { priority: string; label: string; color: string }) => {
+  const handleCallStaff = (reason: CallReason) => {
     const targetName = callTargetStaff === 'all' ? '社員全員' : STAFF_LIST.find(s => s.id === callTargetStaff)?.name || '社員';
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -373,7 +386,6 @@ export default function App() {
     alert(isResolved ? '社員の対応が完了し、解除されました。' : '呼び出しを取り消しました。');
   };
 
-  // いいね送信処理
   const handleSendLike = (targetId: string, message: string) => {
     if (targetId === CURRENT_USER.id) return alert('自分自身には送信できません。');
     const targetObj = LIKE_TARGET_LIST.find(s => s.id === targetId);
@@ -387,13 +399,11 @@ export default function App() {
     alert('所長宛てに送信しました。承認後に相手へ届きます。');
   };
 
-  // 所長によるスキル承認処理
   const handleApproveSkill = (id: number, approve: boolean) => {
     setPendingSkillApprovals(prev => prev.filter(item => item.id !== id));
     alert(approve ? 'スキル習得を承認しました。パートの保有スキルに反映されます。' : '申請を差戻しました。');
   };
 
-  // 所長によるサンクスカード承認処理
   const handleApproveLike = (id: number) => {
     setPendingMessages(prev => prev.map(m => m.id === id ? { ...m, status: 'approved' } : m));
     alert('サンクスカードを承認しました。相手のスマホへ通知が配信されます。');
@@ -435,9 +445,7 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen w-full max-w-md mx-auto bg-slate-100 select-none overflow-hidden text-slate-800 relative">
       
-      {/* ==========================================
-          ★ 権限シミュレーター切替バー（最上部固定）
-          ========================================== */}
+      {/* 視点切替バー */}
       <div className="bg-slate-950 text-white px-2 py-1.5 shrink-0 w-full border-b border-slate-800 z-50">
         <div className="flex items-center justify-between text-[11px]">
           <span className="text-slate-400 font-bold ml-1">視点切替:</span>
@@ -497,12 +505,9 @@ export default function App() {
         </div>
       )}
 
-      {/* =========================================================================
-          画面1：パート画面 (role === 'staff')
-          ========================================================================= */}
+      {/* 画面1：パート画面 */}
       {currentRole === 'staff' && (
         <>
-          {/* ヘッダー */}
           <header className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between shadow-md shrink-0 w-full">
             <div>
               <div className="text-xs text-slate-400">{CURRENT_USER.center}</div>
@@ -520,7 +525,6 @@ export default function App() {
             <span className="text-xs bg-emerald-600 px-2 py-0.5 rounded-full font-medium">個人ページ</span>
           </header>
           
-          {/* 呼出バナー */}
           {activeCall && (
             <div className="bg-red-600 text-white px-4 py-2.5 shadow-md shrink-0 w-full flex items-center justify-between animate-pulse">
               <div className="text-xs font-bold flex items-center space-x-1.5 truncate">
@@ -531,10 +535,7 @@ export default function App() {
             </div>
           )}
 
-          {/* メイン画面 */}
           <main className="flex-1 overflow-y-auto px-4 py-4 pb-24 w-full box-border">
-            
-            {/* 社員呼出 */}
             {currentTab === 'call' && (
               <div className="w-full space-y-4">
                 {activeCall ? (
@@ -578,7 +579,6 @@ export default function App() {
               </div>
             )}
 
-            {/* シフト・給与 */}
             {currentTab === 'shift' && (
               <div className="w-full space-y-3">
                 <div className="flex bg-slate-200 p-1 rounded-xl w-full box-border">
@@ -682,7 +682,6 @@ export default function App() {
               </div>
             )}
 
-            {/* いいね */}
             {currentTab === 'likes' && (
               <div className="w-full space-y-4">
                 <div className="w-full bg-white p-4 rounded-xl shadow-sm border border-slate-200 box-border">
@@ -695,7 +694,6 @@ export default function App() {
               </div>
             )}
 
-            {/* スキル/分布 */}
             {currentTab === 'skills' && (
               <div className="w-full space-y-4">
                 <div className="w-full bg-white p-4 rounded-xl shadow-sm border border-slate-200 box-border">
@@ -704,27 +702,30 @@ export default function App() {
                     <span className="text-xs bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded-full">{approvedSkillCount}個 習得済</span>
                   </div>
                   <div className="space-y-2 w-full">
-                    {Object.entries(skillCategories).map(([category, items]) => (
-                      <div key={category} className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-                        <button onClick={() => toggleCategory(category)} className="w-full px-3 py-2 bg-slate-50 flex items-center justify-between text-left">
-                          <span className="font-bold text-xs text-slate-800">【{category}】 ({items.length})</span>
-                          <IconChevronDown open={!!openCategories[category]} />
-                        </button>
-                        {openCategories[category] && (
-                          <div className="p-2 space-y-1.5 border-t border-slate-100">
-                            {items.map(({ full, label }) => {
-                              const status = mySkillStatus[full] || 'none';
-                              return (
-                                <div key={full} onClick={() => toggleSkillStatus(full)} className="p-2 rounded border text-xs flex items-center justify-between cursor-pointer bg-slate-50">
-                                  <span>{label}</span>
-                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200">{status === 'approved' ? '✓ 習得済' : status === 'pending' ? '⌛ 申請中' : '+ 申請'}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                    {Object.keys(skillCategories).map((category) => {
+                      const items = skillCategories[category];
+                      return (
+                        <div key={category} className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+                          <button onClick={() => toggleCategory(category)} className="w-full px-3 py-2 bg-slate-50 flex items-center justify-between text-left">
+                            <span className="font-bold text-xs text-slate-800">【{category}】 ({items.length})</span>
+                            <IconChevronDown open={Boolean(openCategories[category])} />
+                          </button>
+                          {openCategories[category] && (
+                            <div className="p-2 space-y-1.5 border-t border-slate-100">
+                              {items.map(({ full, label }) => {
+                                const status = mySkillStatus[full] || 'none';
+                                return (
+                                  <div key={full} onClick={() => toggleSkillStatus(full)} className="p-2 rounded border text-xs flex items-center justify-between cursor-pointer bg-slate-50">
+                                    <span>{label}</span>
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200">{status === 'approved' ? '✓ 習得済' : status === 'pending' ? '⌛ 申請中' : '+ 申請'}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -737,13 +738,28 @@ export default function App() {
                     </div>
                     {nextTierInfo && <div className="text-xs text-indigo-300">次まであと {nextTierInfo.remaining} 個</div>}
                   </div>
+
+                  <div className="space-y-2.5">
+                    {SKILL_TIERS.map((tier) => {
+                      const isCurrent = tier.name === currentTier.name;
+                      return (
+                        <div key={tier.name} className={`p-2 rounded-lg border ${isCurrent ? 'bg-indigo-50 border-indigo-400' : 'bg-slate-50 border-slate-200'}`}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="font-bold text-slate-800">{tier.level} {tier.name} ({tier.range})</span>
+                            <span className="text-slate-600 font-bold">{tier.count}名 ({tier.percentage}%)</span>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                            <div className={`h-full ${tier.barColor}`} style={{ width: `${tier.percentage * 2}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
-
           </main>
 
-          {/* パート用ボトムナビ */}
           <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto w-full bg-white/95 backdrop-blur border-t border-slate-200 flex justify-around py-2 shadow-lg z-40">
             {NAV_TABS.map((tab) => (
               <button key={tab.id} onClick={() => setCurrentTab(tab.id)} className={`flex flex-col items-center p-1 text-xs font-medium ${currentTab === tab.id ? `${tab.color} font-bold` : 'text-slate-400'}`}>
@@ -754,13 +770,9 @@ export default function App() {
         </>
       )}
 
-      {/* =========================================================================
-          画面2：所長画面 (role === 'center_admin')
-          ※ YDC伊勢原所属（31名）のデータのみを管理・集計
-          ========================================================================= */}
+      {/* 画面2：所長画面 */}
       {currentRole === 'center_admin' && (
         <div className="flex-1 overflow-y-auto px-4 py-4 pb-12 w-full box-border">
-          {/* 所長ヘッダー */}
           <div className="bg-amber-600 text-white p-4 rounded-2xl shadow-md mb-4">
             <div className="flex justify-between items-center mb-1">
               <span className="text-xs bg-black/20 px-2 py-0.5 rounded font-bold">拠点長ダッシュボード</span>
@@ -770,7 +782,6 @@ export default function App() {
             <p className="text-xs text-amber-100 mt-1">自センター在籍: 31名 （他センターのデータはアクセス不可）</p>
           </div>
 
-          {/* サブナビ切替 */}
           <div className="flex bg-slate-200 p-1 rounded-xl mb-4 w-full">
             <button onClick={() => setCenterTab('shift')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${centerTab === 'shift' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600'}`}>シフト集計 (31名)</button>
             <button onClick={() => setCenterTab('skills')} className={`flex-1 py-2 text-xs font-bold rounded-lg relative ${centerTab === 'skills' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600'}`}>
@@ -780,7 +791,6 @@ export default function App() {
             <button onClick={() => setCenterTab('likes')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${centerTab === 'likes' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600'}`}>カード承認</button>
           </div>
 
-          {/* 1. シフト集計タブ */}
           {centerTab === 'shift' && (
             <div className="space-y-4">
               <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
@@ -795,13 +805,9 @@ export default function App() {
                     <span className="text-xl font-black text-indigo-600">28 <span className="text-xs font-normal text-slate-600">/ 31名</span></span>
                   </div>
                   <div className="bg-rose-50 p-3 rounded-lg border border-rose-200 text-center">
-                    <span className="text-[10px] text-rose-600 block">未提出者（催促対象）</span>
+                    <span className="text-[10px] text-rose-600 block">未提出者</span>
                     <span className="text-xl font-black text-rose-600">3 <span className="text-xs font-normal text-slate-600">名</span></span>
                   </div>
-                </div>
-
-                <div className="text-[11px] text-slate-500 mb-3">
-                  未提出者: <strong className="text-slate-700">堀田 大暉、菅田 真啓、小林 心</strong>
                 </div>
 
                 <button 
@@ -811,39 +817,13 @@ export default function App() {
                   <span>📊 伊勢原センター専用Excel出力 (ヒートマップ付き)</span>
                 </button>
               </div>
-
-              {/* 時間帯別の必要人数 vs 希望人数 */}
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                <h3 className="font-bold text-xs text-slate-700 mb-2">来週月曜 (11/9) 時間帯別の人員充足ヒートマップ</h3>
-                <div className="space-y-1.5 text-xs">
-                  {[
-                    { time: '09:00 - 12:00', needed: 15, current: 16, status: '充足' },
-                    { time: '12:00 - 13:00', needed: 8, current: 8, status: '適正' },
-                    { time: '13:00 - 15:00', needed: 14, current: 11, status: '3名不足' },
-                    { time: '15:00 - 17:00', needed: 12, current: 12, status: '適正' },
-                  ].map((row, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-200">
-                      <span className="font-bold text-slate-700">{row.time}</span>
-                      <span className="text-slate-500">必要: {row.needed}名 / 希望: {row.current}名</span>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        row.status.includes('不足') ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
-                      }`}>
-                        {row.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
           )}
 
-          {/* 2. スキル承認タブ */}
           {centerTab === 'skills' && (
             <div className="space-y-3">
               <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                <h3 className="font-bold text-sm text-slate-800 mb-1">パートからのスキル習得申請一覧</h3>
-                <p className="text-[10px] text-slate-500 mb-3">承認すると、全センターのスキルランキング・分布図に即時反映されます。</p>
-
+                <h3 className="font-bold text-sm text-slate-800 mb-2">パートからのスキル習得申請一覧</h3>
                 {pendingSkillApprovals.length === 0 ? (
                   <div className="text-center py-6 text-slate-400 text-xs">承認待ちのスキル申請はありません。</div>
                 ) : (
@@ -867,7 +847,6 @@ export default function App() {
             </div>
           )}
 
-          {/* 3. カード承認タブ */}
           {centerTab === 'likes' && (
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
               <h3 className="font-bold text-sm text-slate-800 mb-2">サンクスカード承認（所長検閲）</h3>
@@ -887,13 +866,9 @@ export default function App() {
         </div>
       )}
 
-      {/* =========================================================================
-          画面3：本部画面 (role === 'super_admin')
-          ※ 全国19センター・1,000名全員のデータを横断集計・分析
-          ========================================================================= */}
+      {/* 画面3：本部画面 */}
       {currentRole === 'super_admin' && (
         <div className="flex-1 overflow-y-auto px-4 py-4 pb-12 w-full box-border">
-          {/* 本部ヘッダー */}
           <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-md mb-4 border border-slate-800">
             <div className="flex justify-between items-center mb-1">
               <span className="text-xs bg-emerald-600 px-2 py-0.5 rounded font-bold">SC本部 最高管理権限</span>
@@ -903,7 +878,6 @@ export default function App() {
             <p className="text-xs text-slate-300 mt-1">全社パート総数: 1,000名 / 総提出率: 92.4%</p>
           </div>
 
-          {/* 本部サマリーカード */}
           <div className="grid grid-cols-3 gap-2 mb-4">
             <div className="bg-white p-2.5 rounded-xl border border-slate-200 text-center shadow-xs">
               <span className="text-[9px] text-slate-500 block">全国総在籍</span>
@@ -919,7 +893,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* 全社エクスポートボタン */}
           <button 
             onClick={() => alert('全国19センター・1,000名分のシフト希望統合Excelを出力しました。')}
             className="w-full bg-indigo-700 hover:bg-indigo-800 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center space-x-1 shadow-md mb-4"
@@ -927,7 +900,6 @@ export default function App() {
             <span>📥 全国19拠点 統合シフト希望データ (Excel一括出力)</span>
           </button>
 
-          {/* 19センター一覧テーブル */}
           <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="font-bold text-xs text-slate-800 mb-2">全国19拠点 シフト充足率・稼働状況一覧</h3>
             <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
@@ -956,14 +928,6 @@ export default function App() {
                     }`}>
                       充足率 {c.fillRate}%
                     </span>
-                    {c.alert && (
-                      <button 
-                        onClick={() => alert(`${c.name} への近隣拠点（伊勢原・相模原）からの応援要請シミュレーションを起動しました。`)}
-                        className="block mt-1 text-[10px] text-indigo-600 underline font-bold"
-                      >
-                        近隣へ応援要請
-                      </button>
-                    )}
                   </div>
                 </div>
               ))}

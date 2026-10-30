@@ -50,9 +50,9 @@ interface CenterSummary {
   staffCount: number;
   submittedCount: number;
   fillRate: number;
-  skillRate: number;      // スキル習得進捗率 (%)
-  avgSkills: number;      // 1人あたり平均スキル数
-  likeUsageRate: number;  // いいね運用率 (%)
+  skillRate: number;
+  avgSkills: number;
+  likeUsageRate: number;
   alert: string | null;
 }
 
@@ -187,7 +187,6 @@ const SKILL_TIERS: SkillTier[] = [
   { name: 'エントリー', level: 'D級', range: '0～5個', min: 0, max: 5, count: 80, percentage: 7.8, barColor: 'bg-slate-400', badgeBg: 'bg-slate-100 text-slate-700 border-slate-300' },
 ];
 
-// 個人画面用：過去すべての月別勤務履歴データ
 const WORK_HISTORY: Record<string, MonthData> = {
   '2026-10': {
     monthLabel: '2026年10月度', cumulativeHours: 642, cumulativeSalary: 770400,
@@ -365,7 +364,6 @@ export default function App() {
 
   const [sentCount, setSentCount] = useState<number>(1);
   
-  // 全社サンクスカード・メッセージ履歴
   const [allMessages, setAllMessages] = useState<PendingMessage[]>([
     { id: 1, center: '伊勢原', from: '佐々木 深', to: '堀田 大暉', text: '朝の荷卸し手伝っていただき助かりました！', status: 'approved', sentAt: '10/29 08:45' },
     { id: 2, center: '伊勢原', from: '奥山 政幸', to: '湯谷 杏吏', text: 'ピッキングの棚番フォロー感謝です！', status: 'approved', sentAt: '10/29 11:20' },
@@ -396,7 +394,6 @@ export default function App() {
   const HOURS: number[] = [9, 10, 11, 12, 13, 14, 15, 16]; 
   const TOTAL_DAYS = 30;
 
-  // 個人画面用：表示月度（全履歴から選択可能）
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-10');
 
   const skillCategories: Record<string, SkillCategoryItem[]> = useMemo(() => {
@@ -450,7 +447,6 @@ export default function App() {
 
   const totalPlannedSalary = totalPlannedHours * CURRENT_USER.hourlyWage;
   
-  // 選択された月度の勤務データ
   const currentMonthData = useMemo(() => {
     return WORK_HISTORY[selectedMonth] || { monthLabel: '', cumulativeHours: 0, cumulativeSalary: 0, records: [] };
   }, [selectedMonth]);
@@ -622,9 +618,7 @@ export default function App() {
         </div>
       )}
 
-      {/* =========================================================================
-          画面1：パート画面
-          ========================================================================= */}
+      {/* 画面1：パート画面 */}
       {currentRole === 'staff' && (
         <>
           <header className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between shadow-md shrink-0 w-full">
@@ -778,7 +772,7 @@ export default function App() {
                   </div>
                 )}
 
-                {/* 個人画面：過去の勤務実績を全て月別に閲覧 */}
+                {/* 個人画面：全月度 勤務実績 */}
                 {shiftSubTab === 'history' && (
                   <div className="space-y-3 w-full">
                     <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
@@ -817,7 +811,6 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* 日別実績明細 */}
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 w-full box-border">
                       <div className="flex justify-between items-center mb-2">
                         <h3 className="text-xs font-bold text-slate-700">日別実績明細（{currentMonthData.records.length}日稼働）</h3>
@@ -865,7 +858,10 @@ export default function App() {
                 <div className="w-full bg-white p-4 rounded-xl shadow-sm border border-slate-200 box-border">
                   <div className="flex justify-between items-center mb-2">
                     <h2 className="text-base font-bold text-slate-800">保有スキル申請</h2>
-                    <span className="text-xs bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded-full">{approvedSkillCount}個 習得済</span>
+                    {/* ★「何分の何 習得済」の表示に変更 */}
+                    <span className="text-xs bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded-full">
+                      {approvedSkillCount} / {SKILL_LIST.length} 習得済
+                    </span>
                   </div>
                   <div className="space-y-2 w-full">
                     {Object.keys(skillCategories).map((category) => {
@@ -937,9 +933,7 @@ export default function App() {
         </>
       )}
 
-      {/* =========================================================================
-          画面2：所長画面 (伊勢原 153名)
-          ========================================================================= */}
+      {/* 画面2：所長画面 */}
       {currentRole === 'center_admin' && (
         <div className="flex-1 overflow-y-auto px-4 py-4 pb-12 w-full box-border">
           <div className="bg-amber-600 text-white p-4 rounded-2xl shadow-md mb-4">
@@ -1035,9 +1029,7 @@ export default function App() {
         </div>
       )}
 
-      {/* =========================================================================
-          画面3：本部画面 (全国19センター・1,029名 横断集計・分析)
-          ========================================================================= */}
+      {/* 画面3：本部画面 */}
       {currentRole === 'super_admin' && (
         <div className="flex-1 overflow-y-auto px-4 py-4 pb-12 w-full box-border">
           <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-md mb-3 border border-slate-800">
@@ -1049,7 +1041,6 @@ export default function App() {
             <p className="text-xs text-slate-300 mt-0.5">全社パート総数: 1,029名 / 総提出率: 92.3%</p>
           </div>
 
-          {/* 本部用タブ切替 */}
           <div className="flex bg-slate-200 p-1 rounded-xl mb-3 w-full">
             <button 
               onClick={() => setSuperAdminTab('overview')} 
@@ -1071,7 +1062,6 @@ export default function App() {
             </button>
           </div>
 
-          {/* 1. 拠点サマリータブ */}
           {superAdminTab === 'overview' && (
             <div className="space-y-3">
               <div className="grid grid-cols-3 gap-2">
@@ -1132,7 +1122,6 @@ export default function App() {
             </div>
           )}
 
-          {/* 2. スキル習得率タブ（本部機能追加） */}
           {superAdminTab === 'skills' && (
             <div className="space-y-3">
               <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
@@ -1174,10 +1163,8 @@ export default function App() {
             </div>
           )}
 
-          {/* 3. いいね運用率 ＆ 全社メッセージ一覧タブ（本部機能追加） */}
           {superAdminTab === 'likes' && (
             <div className="space-y-3">
-              {/* 各センターのいいね運用率一覧 */}
               <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex justify-between items-center mb-1">
                   <h3 className="font-bold text-xs text-slate-800">全センター いいね（サンクスカード）運用率</h3>
@@ -1201,7 +1188,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 全国サンクスカード メッセージ履歴一覧 */}
               <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="font-bold text-xs text-slate-800">全国サンクスカード メッセージ履歴（全社）</h3>

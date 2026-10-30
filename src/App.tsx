@@ -74,6 +74,32 @@ interface PendingMessage {
   status: 'pending' | 'approved';
 }
 
+interface SvgIconProps {
+  path: string;
+}
+
+interface IconChevronDownProps {
+  open: boolean;
+}
+
+interface FastLikeFormProps {
+  sentCount: number;
+  monthlyLikeLimit: number;
+  targetList: Array<{ id: string; name: string }>;
+  onSend: (targetId: string, message: string) => void;
+}
+
+interface SkillCategoryItem {
+  full: string;
+  label: string;
+}
+
+interface NextTierInfo {
+  nextName: string;
+  nextLevel: string;
+  remaining: number;
+}
+
 // ==========================================
 // 2. マスターデータ
 // ==========================================
@@ -182,28 +208,28 @@ const WORK_HISTORY: Record<string, MonthData> = {
 // ==========================================
 // 3. 共通コンポーネント
 // ==========================================
-const SvgIcon = ({ path }: { path: string }) => (
+const SvgIcon: React.FC<SvgIconProps> = ({ path }) => (
   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={path} />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={path} />
   </svg>
 );
 
-const IconEye = () => (
+const IconEye: React.FC = () => (
   <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
   </svg>
 );
 
-const IconEyeOff = () => (
+const IconEyeOff: React.FC = () => (
   <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
   </svg>
 );
 
-const IconChevronDown = ({ open }: { open: boolean }) => (
+const IconChevronDown: React.FC<IconChevronDownProps> = ({ open }) => (
   <svg className={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
   </svg>
 );
 
@@ -214,14 +240,7 @@ const NAV_TABS = [
   { id: 'skills', label: 'スキル/分布', color: 'text-amber-600', path: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z' },
 ];
 
-interface FastLikeFormProps {
-  sentCount: number;
-  monthlyLikeLimit: number;
-  targetList: Array<{ id: string; name: string }>;
-  onSend: (targetId: string, message: string) => void;
-}
-
-function FastLikeForm({ sentCount, monthlyLikeLimit, targetList, onSend }: FastLikeFormProps) {
+const FastLikeForm: React.FC<FastLikeFormProps> = ({ sentCount, monthlyLikeLimit, targetList, onSend }) => {
   const [selectedTarget, setSelectedTarget] = useState<string>(targetList[0]?.id || '');
   const [message, setMessage] = useState<string>('');
 
@@ -273,7 +292,7 @@ function FastLikeForm({ sentCount, monthlyLikeLimit, targetList, onSend }: FastL
       </button>
     </form>
   );
-}
+};
 
 // ==========================================
 // 4. アプリケーション本体
@@ -326,14 +345,16 @@ export default function App() {
 
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-10');
 
-  // カテゴリ別スキルの整理 (型を明示して Vercel の推論エラーを防止)
-  const skillCategories = useMemo(() => {
-    const map: Record<string, Array<{ full: string; label: string }>> = {};
+  // カテゴリ別スキルの整理 (厳密な型定義)
+  const skillCategories: Record<string, SkillCategoryItem[]> = useMemo(() => {
+    const map: Record<string, SkillCategoryItem[]> = {};
     SKILL_LIST.forEach((s) => {
       const match = s.match(/【(.*?)】/);
       const cat = match ? match[1] : 'その他';
       const label = s.replace(/【.*?】/, '');
-      if (!map[cat]) map[cat] = [];
+      if (!map[cat]) {
+        map[cat] = [];
+      }
       map[cat].push({ full: s, label });
     });
     return map;
@@ -344,10 +365,11 @@ export default function App() {
   }, [mySkillStatus]);
 
   const currentTier = useMemo(() => {
-    return SKILL_TIERS.find(t => approvedSkillCount >= t.min && approvedSkillCount <= t.max) || SKILL_TIERS[SKILL_TIERS.length - 1];
+    const found = SKILL_TIERS.find(t => approvedSkillCount >= t.min && approvedSkillCount <= t.max);
+    return found ? found : SKILL_TIERS[SKILL_TIERS.length - 1];
   }, [approvedSkillCount]);
 
-  const nextTierInfo = useMemo(() => {
+  const nextTierInfo = useMemo<NextTierInfo | null>(() => {
     const currentIndex = SKILL_TIERS.findIndex(t => t.name === currentTier.name);
     if (currentIndex > 0) {
       const next = SKILL_TIERS[currentIndex - 1];
@@ -358,22 +380,38 @@ export default function App() {
   }, [currentTier, approvedSkillCount]);
 
   const totalPlannedHours = useMemo(() => {
-    return Object.keys(shiftDates).reduce((acc: number, key: string) => {
-      const list = shiftDates[Number(key)];
-      return acc + (list ? list.length : 0);
-    }, 0);
+    let total = 0;
+    const keys = Object.keys(shiftDates);
+    for (let i = 0; i < keys.length; i++) {
+      const dayStr = keys[i];
+      const dayNum = parseInt(dayStr, 10);
+      if (!isNaN(dayNum)) {
+        const list = shiftDates[dayNum];
+        if (Array.isArray(list)) {
+          total += list.length;
+        }
+      }
+    }
+    return total;
   }, [shiftDates]);
 
   const totalPlannedSalary = totalPlannedHours * CURRENT_USER.hourlyWage;
-  const currentMonthData = WORK_HISTORY[selectedMonth] || { monthLabel: '', cumulativeHours: 0, cumulativeSalary: 0, records: [] };
-  const monthlyWorkedHours = currentMonthData.records.reduce((acc: number, r: WorkRecord) => acc + r.hours, 0);
+  
+  const currentMonthData = useMemo(() => {
+    return WORK_HISTORY[selectedMonth] || { monthLabel: '', cumulativeHours: 0, cumulativeSalary: 0, records: [] };
+  }, [selectedMonth]);
+
+  const monthlyWorkedHours = useMemo(() => {
+    return currentMonthData.records.reduce((acc, r) => acc + r.hours, 0);
+  }, [currentMonthData]);
+
   const monthlySalary = monthlyWorkedHours * CURRENT_USER.hourlyWage;
 
   const displayMoney = (amount: number) => isMoneyVisible ? `¥${amount.toLocaleString()}` : '¥***,***';
   const isSunday = (day: number) => (day - 1) % 7 === 0;
 
   const handleCallStaff = (reason: CallReason) => {
-    const targetName = callTargetStaff === 'all' ? '社員全員' : STAFF_LIST.find(s => s.id === callTargetStaff)?.name || '社員';
+    const targetName = callTargetStaff === 'all' ? '社員全員' : (STAFF_LIST.find(s => s.id === callTargetStaff)?.name || '社員');
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     
@@ -393,14 +431,22 @@ export default function App() {
   };
 
   const handleSendLike = (targetId: string, message: string) => {
-    if (targetId === CURRENT_USER.id) return alert('自分自身には送信できません。');
+    if (targetId === CURRENT_USER.id) {
+      alert('自分自身には送信できません。');
+      return;
+    }
     const targetObj = LIKE_TARGET_LIST.find(s => s.id === targetId);
     if (!targetObj) return;
 
-    setPendingMessages(prev => [
-      { id: Date.now(), from: CURRENT_USER.name, to: targetObj.name, text: message, status: 'pending' },
-      ...prev
-    ]);
+    const newMessage: PendingMessage = { 
+      id: Date.now(), 
+      from: CURRENT_USER.name, 
+      to: targetObj.name, 
+      text: message, 
+      status: 'pending' 
+    };
+
+    setPendingMessages(prev => [newMessage, ...prev]);
     setSentCount(prev => prev + 1);
     alert('所長宛てに送信しました。承認後に相手へ届きます。');
   };
@@ -442,9 +488,18 @@ export default function App() {
     setSelectedDay(day); 
     setTempHours(shiftDates[day] || []); 
   };
-  const toggleHour = (h: number) => setTempHours(prev => prev.includes(h) ? prev.filter(x => x !== h) : [...prev, h].sort((a, b) => a - b));
+  const toggleHour = (h: number) => {
+    setTempHours(prev => {
+      if (prev.includes(h)) {
+        return prev.filter(x => x !== h);
+      }
+      return [...prev, h].sort((a, b) => a - b);
+    });
+  };
   const saveHours = () => { 
-    if (selectedDay !== null) setShiftDates({ ...shiftDates, [selectedDay]: tempHours }); 
+    if (selectedDay !== null) {
+      setShiftDates(prev => ({ ...prev, [selectedDay]: tempHours }));
+    }
     setSelectedDay(null); 
   };
 
@@ -500,7 +555,7 @@ export default function App() {
               })}
             </div>
             <div className="flex justify-between space-x-2 mb-5 w-full">
-              <button onClick={() => setTempHours(HOURS)} className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 py-2 rounded-lg text-xs font-bold transition">フル一括 (8h)</button>
+              <button onClick={() => setTempHours([...HOURS])} className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 py-2 rounded-lg text-xs font-bold transition">フル一括 (8h)</button>
               <button onClick={() => setTempHours([])} className="flex-1 bg-slate-100 text-slate-500 py-2 rounded-lg text-xs font-bold border border-slate-200">クリア (休み)</button>
             </div>
             <div className="flex space-x-2.5 w-full">
@@ -534,7 +589,7 @@ export default function App() {
           {activeCall && (
             <div className="bg-red-600 text-white px-4 py-2.5 shadow-md shrink-0 w-full flex items-center justify-between animate-pulse">
               <div className="text-xs font-bold flex items-center space-x-1.5 truncate">
-                <span>🚨</span>
+                <span role="img" aria-label="alert">🚨</span>
                 <span className="truncate">【呼出中】{activeCall.targetName} へ [{activeCall.priority}優先] {activeCall.reasonLabel}</span>
               </div>
               <span className="text-[10px] bg-black/30 px-2 py-0.5 rounded shrink-0 ml-2 font-mono">{activeCall.calledAt}発信</span>
@@ -710,13 +765,14 @@ export default function App() {
                   <div className="space-y-2 w-full">
                     {Object.keys(skillCategories).map((category) => {
                       const items = skillCategories[category];
+                      const isOpen = Boolean(openCategories[category]);
                       return (
                         <div key={category} className="border border-slate-200 rounded-lg overflow-hidden bg-white">
                           <button onClick={() => toggleCategory(category)} className="w-full px-3 py-2 bg-slate-50 flex items-center justify-between text-left">
                             <span className="font-bold text-xs text-slate-800">【{category}】 ({items.length})</span>
-                            <IconChevronDown open={Boolean(openCategories[category])} />
+                            <IconChevronDown open={isOpen} />
                           </button>
-                          {openCategories[category] && (
+                          {isOpen && (
                             <div className="p-2 space-y-1.5 border-t border-slate-100">
                               {items.map(({ full, label }) => {
                                 const status = mySkillStatus[full] || 'none';
@@ -789,7 +845,7 @@ export default function App() {
           </div>
 
           <div className="flex bg-slate-200 p-1 rounded-xl mb-4 w-full">
-            <button onClick={() => setCenterTab('shift')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${centerTab === 'shift' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600'}`}>シフト集計 (31名)</button>
+            <button onClick={() => setCenterTab('shift')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${centerTab === 'shift' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600'}`}>シフト集計</button>
             <button onClick={() => setCenterTab('skills')} className={`flex-1 py-2 text-xs font-bold rounded-lg relative ${centerTab === 'skills' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600'}`}>
               スキル承認
               {pendingSkillApprovals.length > 0 && <span className="ml-1 bg-red-500 text-white px-1.5 py-0.2 rounded-full text-[9px]">{pendingSkillApprovals.length}</span>}
@@ -820,7 +876,7 @@ export default function App() {
                   onClick={() => alert('YDC伊勢原（31名）専用のシフト集計Excelファイルをダウンロードしました。')}
                   className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 rounded-lg text-xs flex items-center justify-center space-x-1 shadow"
                 >
-                  <span>📊 伊勢原センター専用Excel出力 (ヒートマップ付き)</span>
+                  <span>📊 伊勢原センター専用Excel出力</span>
                 </button>
               </div>
             </div>
@@ -903,7 +959,7 @@ export default function App() {
             onClick={() => alert('全国19センター・1,000名分のシフト希望統合Excelを出力しました。')}
             className="w-full bg-indigo-700 hover:bg-indigo-800 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center space-x-1 shadow-md mb-4"
           >
-            <span>📥 全国19拠点 統合シフト希望データ (Excel出力)</span>
+            <span>📥 全国19拠点 統合シフト希望データ (Excel一括出力)</span>
           </button>
 
           <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">

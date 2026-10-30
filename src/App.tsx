@@ -180,7 +180,7 @@ const LIKE_TARGET_LIST = [
 ];
 
 const SKILL_TIERS: SkillTier[] = [
-  { name: 'マスター', level: 'S級', range: '18個以上', min: 118, max: 21, count: 52, percentage: 5.1, barColor: 'bg-amber-500', badgeBg: 'bg-amber-100 text-amber-800 border-amber-300' },
+  { name: 'マスター', level: 'S級', range: '18個以上', min: 18, max: 21, count: 52, percentage: 5.1, barColor: 'bg-amber-500', badgeBg: 'bg-amber-100 text-amber-800 border-amber-300' },
   { name: 'プロ', level: 'A級', range: '14〜17個', min: 14, max: 17, count: 160, percentage: 15.5, barColor: 'bg-purple-500', badgeBg: 'bg-purple-100 text-purple-800 border-purple-300' },
   { name: 'アドバンス', level: 'B級', range: '10〜13個', min: 10, max: 13, count: 415, percentage: 40.3, barColor: 'bg-indigo-500', badgeBg: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
   { name: 'スタンダード', level: 'C級', range: '6〜9個', min: 6, max: 9, count: 322, percentage: 31.3, barColor: 'bg-blue-500', badgeBg: 'bg-blue-100 text-blue-800 border-blue-300' },

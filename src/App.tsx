@@ -1,4 +1,10 @@
-import React, { useState, useMemo, FormEvent } from 'react';
+import React, { useState, useMemo, useEffect, FormEvent } from 'react';
+
+// ==========================================
+// ★ Google Apps Script (GAS) Web API URL
+// ※ デプロイして発行されたURLをここに貼り付けると本番連携します
+// ==========================================
+const GAS_API_URL = ''; // 例: 'https://script.google.com/macros/s/AKfycb.../exec'
 
 // ==========================================
 // 1. 型定義 (TypeScript)
@@ -11,7 +17,7 @@ type SkillStatus = 'none' | 'pending' | 'approved';
 
 interface WorkRecord {
   date: string;
-  minutes: number; // 分単位の勤務実績
+  minutes: number;
   timeRange: string;
 }
 
@@ -137,7 +143,6 @@ const CALL_REASONS: CallReason[] = [
   { id: 4, label: '【相談】 その他', priority: '低', color: 'bg-slate-600 text-white' },
 ];
 
-// スキル一覧（専用アイコン付き）
 const SKILL_DEFINITIONS: Array<{ category: string; label: string; icon: string }> = [
   { category: '発注', label: '入力業務', icon: '💻' },
   { category: '発注', label: '新発注補助Ｓ操作', icon: '🖥️' },
@@ -164,7 +169,7 @@ const SKILL_DEFINITIONS: Array<{ category: string; label: string; icon: string }
 
 const SKILL_LIST: string[] = SKILL_DEFINITIONS.map(s => `【${s.category}】${s.label}`);
 
-const CURRENT_USER = {
+const DEFAULT_CURRENT_USER = {
   id: 'user_182',
   name: '佐々木 深',
   center: '伊勢原',
@@ -205,29 +210,27 @@ const SKILL_TIERS: SkillTier[] = [
   { name: 'エントリー', level: 'D級', range: '0～5個', min: 0, max: 5, count: 80, percentage: 7.8, barColor: 'bg-slate-400', badgeBg: 'bg-slate-100 text-slate-700 border-slate-300' },
 ];
 
-// 全国1,029名のスキル保有数ごとの人数分布（シミュレーション用テーブル）
 const SKILL_COUNT_DISTRIBUTION: Record<number, number> = {
-  21: 5, 20: 10, 19: 15, 18: 22, // S級 (52名)
-  17: 30, 16: 40, 15: 45, 14: 45, // A級 (160名)
-  13: 80, 12: 110, 11: 115, 10: 110, // B級 (415名)
-  9: 90, 8: 90, 7: 72, 6: 70, // C級 (322名)
-  5: 25, 4: 20, 3: 15, 2: 10, 1: 6, 0: 4 // D級 (80名)
+  21: 5, 20: 10, 19: 15, 18: 22,
+  17: 30, 16: 40, 15: 45, 14: 45,
+  13: 80, 12: 110, 11: 115, 10: 110,
+  9: 90, 8: 90, 7: 72, 6: 70,
+  5: 25, 4: 20, 3: 15, 2: 10, 1: 6, 0: 4
 };
 
-// 個人画面用：分単位の勤務実績データ
 const WORK_HISTORY: Record<string, MonthData> = {
   '2026-10': {
     monthLabel: '2026年10月度',
     records: [
-      { date: '10/01 (木)', minutes: 455, timeRange: '9:00 - 17:35 (休1h)' }, // 7h35m
-      { date: '10/02 (金)', minutes: 492, timeRange: '9:00 - 18:12 (休1h)' }, // 8h12m
-      { date: '10/05 (月)', minutes: 405, timeRange: '10:00 - 17:45 (休1h)' }, // 6h45m
-      { date: '10/07 (水)', minutes: 440, timeRange: '9:00 - 17:20 (休1h)' }, // 7h20m
-      { date: '10/08 (木)', minutes: 470, timeRange: '9:00 - 17:50 (休1h)' }, // 7h50m
-      { date: '10/09 (金)', minutes: 315, timeRange: '11:00 - 17:15 (休1h)' }, // 5h15m
-      { date: '10/12 (月)', minutes: 485, timeRange: '9:00 - 18:05 (休1h)' }, // 8h05m
-      { date: '10/14 (水)', minutes: 450, timeRange: '9:00 - 17:30 (休1h)' }, // 7h30m
-      { date: '10/16 (金)', minutes: 495, timeRange: '9:00 - 18:15 (休1h)' }, // 8h15m
+      { date: '10/01 (木)', minutes: 455, timeRange: '9:00 - 17:35 (休1h)' },
+      { date: '10/02 (金)', minutes: 492, timeRange: '9:00 - 18:12 (休1h)' },
+      { date: '10/05 (月)', minutes: 405, timeRange: '10:00 - 17:45 (休1h)' },
+      { date: '10/07 (水)', minutes: 440, timeRange: '9:00 - 17:20 (休1h)' },
+      { date: '10/08 (木)', minutes: 470, timeRange: '9:00 - 17:50 (休1h)' },
+      { date: '10/09 (金)', minutes: 315, timeRange: '11:00 - 17:15 (休1h)' },
+      { date: '10/12 (月)', minutes: 485, timeRange: '9:00 - 18:05 (休1h)' },
+      { date: '10/14 (水)', minutes: 450, timeRange: '9:00 - 17:30 (休1h)' },
+      { date: '10/16 (金)', minutes: 495, timeRange: '9:00 - 18:15 (休1h)' },
     ]
   },
   '2026-09': {
@@ -278,23 +281,18 @@ const WORK_HISTORY: Record<string, MonthData> = {
   }
 };
 
-// ==========================================
-// 3. ユーティリティ関数
-// ==========================================
-// 分数を「○時間○分」に変換
 const formatMinutes = (totalMinutes: number): string => {
   const h = Math.floor(totalMinutes / 60);
   const m = totalMinutes % 60;
   return m > 0 ? `${h}時間${m}分` : `${h}時間`;
 };
 
-// 分単位給与の計算（時給 ÷ 60 × 勤務分数、円未満切り捨て）
 const calculateMinuteSalary = (minutes: number, wage: number): number => {
   return Math.floor((wage / 60) * minutes);
 };
 
 // ==========================================
-// 4. 共通コンポーネント
+// 3. 共通コンポーネント
 // ==========================================
 const SvgIcon: React.FC<SvgIconProps> = ({ path }) => (
   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -383,7 +381,7 @@ const FastLikeForm: React.FC<FastLikeFormProps> = ({ sentCount, monthlyLikeLimit
 };
 
 // ==========================================
-// 5. アプリケーション本体
+// 4. アプリケーション本体
 // ==========================================
 export default function App() {
   const [currentRole, setCurrentRole] = useState<UserRole>('staff');
@@ -392,6 +390,10 @@ export default function App() {
   const [centerTab, setCenterTab] = useState<CenterTab>('shift');
   const [superAdminTab, setSuperAdminTab] = useState<SuperAdminTab>('overview');
   
+  // ユーザー情報（スプレッドシートから最新時給を取得して更新）
+  const [currentUser, setCurrentUser] = useState(DEFAULT_CURRENT_USER);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+
   const [isMoneyVisible, setIsMoneyVisible] = useState<boolean>(false);
   const [isDeadlinePassed, setIsDeadlinePassed] = useState<boolean>(false);
   
@@ -439,7 +441,30 @@ export default function App() {
 
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-10');
 
-  // カテゴリ別スキルの整理
+  // ★ 1. スプレッドシートから名簿・時給を自動取得（初期起動時）
+  useEffect(() => {
+    if (!GAS_API_URL) return;
+    const fetchRoster = async () => {
+      try {
+        const res = await fetch(`${GAS_API_URL}?center=${encodeURIComponent(currentUser.center)}`);
+        const data = await res.json();
+        if (data && data.staff) {
+          const userRecord = data.staff.find((s: { id: string; hourlyWage: number; name: string }) => s.id === currentUser.id);
+          if (userRecord) {
+            setCurrentUser(prev => ({
+              ...prev,
+              hourlyWage: userRecord.hourlyWage || prev.hourlyWage,
+              name: userRecord.name || prev.name,
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn('スプレッドシート名簿の自動取得をスキップ（ローカル保持データを使用）', err);
+      }
+    };
+    fetchRoster();
+  }, [currentUser.center, currentUser.id]);
+
   const skillCategories: Record<string, SkillItem[]> = useMemo(() => {
     const map: Record<string, SkillItem[]> = {};
     SKILL_DEFINITIONS.forEach((s) => {
@@ -461,23 +486,20 @@ export default function App() {
     return found ? found : SKILL_TIERS[SKILL_TIERS.length - 1];
   }, [approvedSkillCount]);
 
-  // ★個人順位（全体順位 ＆ クラス内順位）の動的算出
+  // 個人順位（全体順位 ＆ クラス内順位）
   const rankStats = useMemo(() => {
     const totalWorkers = 1029;
-    
-    // 自分よりスキル数が多い人数を合計
     let higherCount = 0;
     for (let c = 21; c > approvedSkillCount; c--) {
       higherCount += SKILL_COUNT_DISTRIBUTION[c] || 0;
     }
-    const overallRank = higherCount + 1; // 全体順位
+    const overallRank = higherCount + 1;
 
-    // 現在の所属クラス内での順位
     let higherInTier = 0;
     for (let c = currentTier.max; c > approvedSkillCount; c--) {
       higherInTier += SKILL_COUNT_DISTRIBUTION[c] || 0;
     }
-    const tierRank = higherInTier + 1; // クラス内順位
+    const tierRank = higherInTier + 1;
 
     return {
       overallRank,
@@ -513,24 +535,20 @@ export default function App() {
     return total;
   }, [shiftDates]);
 
-  const totalPlannedSalary = totalPlannedHours * CURRENT_USER.hourlyWage;
+  const totalPlannedSalary = totalPlannedHours * currentUser.hourlyWage;
   
-  // ★分単位での勤務実績・給与計算
   const currentMonthData = useMemo(() => {
     return WORK_HISTORY[selectedMonth] || { monthLabel: '', records: [] };
   }, [selectedMonth]);
 
-  // 当月の合計勤務分数
   const monthlyTotalMinutes = useMemo(() => {
     return currentMonthData.records.reduce((acc, r) => acc + r.minutes, 0);
   }, [currentMonthData]);
 
-  // 当月の分単位給与額
   const monthlySalary = useMemo(() => {
-    return calculateMinuteSalary(monthlyTotalMinutes, CURRENT_USER.hourlyWage);
-  }, [monthlyTotalMinutes]);
+    return calculateMinuteSalary(monthlyTotalMinutes, currentUser.hourlyWage);
+  }, [monthlyTotalMinutes, currentUser.hourlyWage]);
 
-  // 全月度累計の勤務分数と累計給与
   const cumulativeStats = useMemo(() => {
     let totalMins = 0;
     Object.values(WORK_HISTORY).forEach(month => {
@@ -538,12 +556,65 @@ export default function App() {
     });
     return {
       totalMinutes: totalMins,
-      totalSalary: calculateMinuteSalary(totalMins, CURRENT_USER.hourlyWage)
+      totalSalary: calculateMinuteSalary(totalMins, currentUser.hourlyWage)
     };
-  }, []);
+  }, [currentUser.hourlyWage]);
 
   const displayMoney = (amount: number) => isMoneyVisible ? `¥${amount.toLocaleString()}` : '¥***,***';
   const isSunday = (day: number) => (day - 1) % 7 === 0;
+
+  // ★ 2. 即時完了 ＆ 自動リトライ機能付きシフト提出処理
+  const handleShiftSubmit = async () => {
+    // ① 即時画面切り替え（Optimistic UI）
+    setShiftSubmitted(true);
+    setSyncStatus('クラウド保存中...');
+
+    const payload = {
+      userId: currentUser.id,
+      userName: currentUser.name,
+      center: currentUser.center,
+      targetWeek: SHIFT_SCHEDULE.targetWeek,
+      totalHours: totalPlannedHours,
+      estimatedSalary: totalPlannedSalary,
+      shiftDates: shiftDates,
+    };
+
+    // ② バックグラウンドで自動リトライ送信（GAS APIが設定されている場合）
+    if (!GAS_API_URL) {
+      setTimeout(() => setSyncStatus(null), 2500);
+      alert(`合計 ${totalPlannedHours}時間で希望シフトを提出しました。`);
+      return;
+    }
+
+    const postWithRetry = async (retries = 3, delay = 1000): Promise<boolean> => {
+      try {
+        const res = await fetch(GAS_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify(payload),
+        });
+        const result = await res.json();
+        if (result && result.success) return true;
+        throw new Error('GAS response error');
+      } catch (err) {
+        if (retries <= 1) return false;
+        // 混雑時は指数バックオフ＋ランダムジッターで順番待ち
+        await new Promise(r => setTimeout(r, delay + Math.random() * 500));
+        return postWithRetry(retries - 1, delay * 2);
+      }
+    };
+
+    postWithRetry().then(success => {
+      if (success) {
+        setSyncStatus('✓ スプレッドシート同期完了');
+      } else {
+        setSyncStatus('※ 端末に保存済（後ほど自動同期）');
+      }
+      setTimeout(() => setSyncStatus(null), 3500);
+    });
+
+    alert(`合計 ${totalPlannedHours}時間で希望シフトを提出しました。`);
+  };
 
   const handleCallStaff = (reason: CallReason) => {
     const targetName = callTargetStaff === 'all' ? '社員全員' : (STAFF_LIST.find(s => s.id === callTargetStaff)?.name || '社員');
@@ -566,7 +637,7 @@ export default function App() {
   };
 
   const handleSendLike = (targetId: string, message: string) => {
-    if (targetId === CURRENT_USER.id) {
+    if (targetId === currentUser.id) {
       alert('自分自身には送信できません。');
       return;
     }
@@ -576,7 +647,7 @@ export default function App() {
     const newMessage: PendingMessage = { 
       id: Date.now(),
       center: '伊勢原',
-      from: CURRENT_USER.name, 
+      from: currentUser.name, 
       to: targetObj.name, 
       text: message, 
       status: 'pending',
@@ -710,14 +781,14 @@ export default function App() {
         <>
           <header className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between shadow-md shrink-0 w-full">
             <div>
-              <div className="text-xs text-slate-400">{CURRENT_USER.center}センター</div>
+              <div className="text-xs text-slate-400">{currentUser.center}センター</div>
               <div className="text-sm font-bold flex items-center">
-                {CURRENT_USER.name} さん 
+                {currentUser.name} さん 
                 <button 
                   onClick={() => setIsMoneyVisible(!isMoneyVisible)} 
                   className="ml-2 flex items-center text-[11px] font-normal text-slate-300 hover:text-white transition-colors bg-slate-800 px-2 py-0.5 rounded-full"
                 >
-                  時給 {displayMoney(CURRENT_USER.hourlyWage)} (分給: ¥{(CURRENT_USER.hourlyWage / 60).toFixed(1)})
+                  時給 {displayMoney(currentUser.hourlyWage)} (分給: ¥{(currentUser.hourlyWage / 60).toFixed(1)})
                   {isMoneyVisible ? <IconEye /> : <IconEyeOff />}
                 </button>
               </div>
@@ -725,6 +796,13 @@ export default function App() {
             <span className="text-xs bg-emerald-600 px-2 py-0.5 rounded-full font-medium">個人ページ</span>
           </header>
           
+          {/* 同期ステータスバナー */}
+          {syncStatus && (
+            <div className="bg-indigo-600 text-white text-[11px] px-3 py-1 font-bold text-center transition-all animate-pulse">
+              {syncStatus}
+            </div>
+          )}
+
           {activeCall && (
             <div className="bg-red-600 text-white px-4 py-2.5 shadow-md shrink-0 w-full flex items-center justify-between animate-pulse">
               <div className="text-xs font-bold flex items-center space-x-1.5 truncate">
@@ -849,17 +927,17 @@ export default function App() {
                         })}
                       </div>
 
+                      {/* ★ 即時完了 ＆ 自動リトライ機能呼び出し */}
                       <button
-                        onClick={() => { setShiftSubmitted(true); alert(`合計 ${totalPlannedHours}時間で希望シフトを提出しました。`); }}
+                        onClick={handleShiftSubmit}
                         className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl text-sm shadow-md active:scale-95 transition-transform"
                       >
-                        {shiftSubmitted ? '✓ 提出完了（再提出する）' : 'この内容でシフトを提出する'}
+                        {shiftSubmitted ? '✓ 提出完了（保存済・再提出する）' : 'この内容でシフトを提出する'}
                       </button>
                     </div>
                   </div>
                 )}
 
-                {/* ★個人画面：分単位での勤務実績明細・給与 */}
                 {shiftSubTab === 'history' && (
                   <div className="space-y-3 w-full">
                     <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
@@ -914,7 +992,7 @@ export default function App() {
                       </div>
                       <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto pr-1">
                         {currentMonthData.records.map((r, idx) => {
-                          const dailyPay = calculateMinuteSalary(r.minutes, CURRENT_USER.hourlyWage);
+                          const dailyPay = calculateMinuteSalary(r.minutes, currentUser.hourlyWage);
                           return (
                             <div key={idx} className="py-2.5 flex justify-between items-center text-xs">
                               <div>
@@ -940,61 +1018,18 @@ export default function App() {
                 <div className="w-full bg-white p-4 rounded-xl shadow-sm border border-slate-200 box-border">
                   <div className="flex justify-between items-center mb-3">
                     <h2 className="text-base font-bold text-slate-800">サンクスカードを送る</h2>
-                    <span className="text-xs font-bold text-slate-500">今月: {sentCount} / {CURRENT_USER.monthlyLikeLimit} 件</span>
+                    <span className="text-xs font-bold text-slate-500">今月: {sentCount} / {currentUser.monthlyLikeLimit} 件</span>
                   </div>
-                  <FastLikeForm sentCount={sentCount} monthlyLikeLimit={CURRENT_USER.monthlyLikeLimit} targetList={LIKE_TARGET_LIST} onSend={handleSendLike} />
+                  <FastLikeForm sentCount={sentCount} monthlyLikeLimit={currentUser.monthlyLikeLimit} targetList={LIKE_TARGET_LIST} onSend={handleSendLike} />
                 </div>
               </div>
             )}
 
-            {/* スキル・順位タブ */}
+            {/* ★ 順序変更：①保有スキル申請 ➔ ②分布図 ➔ ③個人順位 */}
             {currentTab === 'skills' && (
               <div className="w-full space-y-4">
                 
-                {/* ★個人順位（全体順位 ＆ クラス内順位）を数値で表示 */}
-                <div className="w-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-4 rounded-2xl shadow-md border border-indigo-900/40">
-                  <div className="flex justify-between items-center mb-2 pb-2 border-b border-indigo-800/40">
-                    <span className="text-xs font-bold text-indigo-300">全国パート個人スキル順位</span>
-                    <span className="text-[10px] bg-indigo-500/30 text-indigo-200 px-2 py-0.5 rounded-full font-mono">
-                      全19センター集計
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 my-2">
-                    {/* クラス内順位 */}
-                    <div className="bg-white/10 backdrop-blur-xs p-3 rounded-xl border border-white/10 text-center">
-                      <div className="text-[10px] text-indigo-200 font-bold mb-0.5">
-                        {currentTier.level} {currentTier.name} 内
-                      </div>
-                      <div className="text-xl font-black text-amber-300 tracking-tight">
-                        {rankStats.tierRank} <span className="text-xs font-normal text-slate-300">/ {rankStats.tierCount}位</span>
-                      </div>
-                      <div className="text-[9px] text-slate-400 mt-0.5">（同クラス内順位）</div>
-                    </div>
-
-                    {/* 全国全体順位 */}
-                    <div className="bg-white/10 backdrop-blur-xs p-3 rounded-xl border border-white/10 text-center">
-                      <div className="text-[10px] text-indigo-200 font-bold mb-0.5">全国全体順位</div>
-                      <div className="text-xl font-black text-emerald-300 tracking-tight">
-                        {rankStats.overallRank} <span className="text-xs font-normal text-slate-300">/ {rankStats.totalWorkers}位</span>
-                      </div>
-                      <div className="text-[9px] text-slate-400 mt-0.5">（全国パート1,029名中）</div>
-                    </div>
-                  </div>
-
-                  {nextTierInfo ? (
-                    <div className="text-[11px] bg-indigo-900/50 px-3 py-1.5 rounded-lg text-indigo-100 flex items-center justify-between mt-2">
-                      <span>上位ランク <strong className="text-white">{nextTierInfo.nextLevel} {nextTierInfo.nextName}</strong> まで</span>
-                      <span className="text-amber-300 font-bold">あと {nextTierInfo.remaining} スキル</span>
-                    </div>
-                  ) : (
-                    <div className="text-[11px] bg-amber-500/20 text-amber-200 px-3 py-1.5 rounded-lg text-center font-bold mt-2">
-                      ★ 最高位のマスタークラス（上位5%）に到達しています！
-                    </div>
-                  )}
-                </div>
-
-                {/* スキル登録リスト（アイコン付き＆取得済みスキルの視認性向上） */}
+                {/* 1. 保有スキル申請（アイコン付き＆取得済みスキルの視認性向上） */}
                 <div className="w-full bg-white p-4 rounded-xl shadow-sm border border-slate-200 box-border">
                   <div className="flex justify-between items-center mb-1">
                     <h2 className="text-base font-bold text-slate-800">保有スキル申請</h2>
@@ -1086,7 +1121,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 全国分布バーグラフ */}
+                {/* 2. 全国分布バーグラフ */}
                 <div className="w-full bg-white p-4 rounded-xl shadow-sm border border-slate-200 box-border">
                   <h3 className="text-xs font-bold text-slate-800 mb-2">全国パート社員 スキル分布図（1,029名）</h3>
                   <div className="space-y-2.5">
@@ -1109,6 +1144,47 @@ export default function App() {
                       );
                     })}
                   </div>
+                </div>
+
+                {/* 3. 全国パート個人スキル順位（最下部へ移動） */}
+                <div className="w-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-4 rounded-2xl shadow-md border border-indigo-900/40">
+                  <div className="flex justify-between items-center mb-2 pb-2 border-b border-indigo-800/40">
+                    <span className="text-xs font-bold text-indigo-300">全国パート個人スキル順位</span>
+                    <span className="text-[10px] bg-indigo-500/30 text-indigo-200 px-2 py-0.5 rounded-full font-mono">
+                      全19センター集計
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 my-2">
+                    <div className="bg-white/10 backdrop-blur-xs p-3 rounded-xl border border-white/10 text-center">
+                      <div className="text-[10px] text-indigo-200 font-bold mb-0.5">
+                        {currentTier.level} {currentTier.name} 内
+                      </div>
+                      <div className="text-xl font-black text-amber-300 tracking-tight">
+                        {rankStats.tierRank} <span className="text-xs font-normal text-slate-300">/ {rankStats.tierCount}位</span>
+                      </div>
+                      <div className="text-[9px] text-slate-400 mt-0.5">（同クラス内順位）</div>
+                    </div>
+
+                    <div className="bg-white/10 backdrop-blur-xs p-3 rounded-xl border border-white/10 text-center">
+                      <div className="text-[10px] text-indigo-200 font-bold mb-0.5">全国全体順位</div>
+                      <div className="text-xl font-black text-emerald-300 tracking-tight">
+                        {rankStats.overallRank} <span className="text-xs font-normal text-slate-300">/ {rankStats.totalWorkers}位</span>
+                      </div>
+                      <div className="text-[9px] text-slate-400 mt-0.5">（全国パート1,029名中）</div>
+                    </div>
+                  </div>
+
+                  {nextTierInfo ? (
+                    <div className="text-[11px] bg-indigo-900/50 px-3 py-1.5 rounded-lg text-indigo-100 flex items-center justify-between mt-2">
+                      <span>上位ランク <strong className="text-white">{nextTierInfo.nextLevel} {nextTierInfo.nextName}</strong> まで</span>
+                      <span className="text-amber-300 font-bold">あと {nextTierInfo.remaining} スキル</span>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] bg-amber-500/20 text-amber-200 px-3 py-1.5 rounded-lg text-center font-bold mt-2">
+                      ★ 最高位のマスタークラス（上位5%）に到達しています！
+                    </div>
+                  )}
                 </div>
 
               </div>

@@ -11,14 +11,12 @@ type SkillStatus = 'none' | 'pending' | 'approved';
 
 interface WorkRecord {
   date: string;
-  hours: number;
+  minutes: number; // 分単位の勤務実績
   timeRange: string;
 }
 
 interface MonthData {
   monthLabel: string;
-  cumulativeHours: number;
-  cumulativeSalary: number;
   records: WorkRecord[];
 }
 
@@ -95,9 +93,10 @@ interface FastLikeFormProps {
   onSend: (targetId: string, message: string) => void;
 }
 
-interface SkillCategoryItem {
+interface SkillItem {
   full: string;
   label: string;
+  icon: string;
 }
 
 interface NextTierInfo {
@@ -138,13 +137,32 @@ const CALL_REASONS: CallReason[] = [
   { id: 4, label: '【相談】 その他', priority: '低', color: 'bg-slate-600 text-white' },
 ];
 
-const SKILL_LIST: string[] = [
-  '【発注】入力業務', '【発注】新発注補助Ｓ操作', '【発注】直送発注', '【発注】移動対応',
-  '【入荷】入荷照合', '【棚入】棚入', '【棚入】棚番メンテナンス', '【棚入】セット組み・得意先依頼加工',
-  '【出荷】受注引当（集計）', '【出荷】ピッキング ＨＴ', '【出荷】ピッキングリスト', '【出荷】ケースラベル',
-  '【出荷】不定形 ＨＴ', '【返品】店返品作業', '【返品】店返品棚戻', '【返品】仕入れ返品作業',
-  '【棚卸】カウント', '【事務業務】仕入', '【事務業務】売上', '【事務業務】出荷事務', '【その他】フォークリフト乗務',
+// スキル一覧（専用アイコン付き）
+const SKILL_DEFINITIONS: Array<{ category: string; label: string; icon: string }> = [
+  { category: '発注', label: '入力業務', icon: '💻' },
+  { category: '発注', label: '新発注補助Ｓ操作', icon: '🖥️' },
+  { category: '発注', label: '直送発注', icon: '🚚' },
+  { category: '発注', label: '移動対応', icon: '🔄' },
+  { category: '入荷', label: '入荷照合', icon: '📥' },
+  { category: '棚入', label: '棚入', icon: '📦' },
+  { category: '棚入', label: '棚番メンテナンス', icon: '🏷️' },
+  { category: '棚入', label: 'セット組み・得意先依頼加工', icon: '🛠️' },
+  { category: '出荷', label: '受注引当（集計）', icon: '📊' },
+  { category: '出荷', label: 'ピッキング ＨＴ', icon: '📱' },
+  { category: '出荷', label: 'ピッキングリスト', icon: '📋' },
+  { category: '出荷', label: 'ケースラベル', icon: '🏷️' },
+  { category: '出荷', label: '不定形 ＨＴ', icon: '📦' },
+  { category: '返品', label: '店返品作業', icon: '↩️' },
+  { category: '返品', label: '店返品棚戻', icon: '🔙' },
+  { category: '返品', label: '仕入れ返品作業', icon: '📦' },
+  { category: '棚卸', label: 'カウント', icon: '🔢' },
+  { category: '事務業務', label: '仕入', icon: '📑' },
+  { category: '事務業務', label: '売上', icon: '🧾' },
+  { category: '事務業務', label: '出荷事務', icon: '📂' },
+  { category: 'その他', label: 'フォークリフト乗務', icon: '🚜' },
 ];
+
+const SKILL_LIST: string[] = SKILL_DEFINITIONS.map(s => `【${s.category}】${s.label}`);
 
 const CURRENT_USER = {
   id: 'user_182',
@@ -187,71 +205,96 @@ const SKILL_TIERS: SkillTier[] = [
   { name: 'エントリー', level: 'D級', range: '0～5個', min: 0, max: 5, count: 80, percentage: 7.8, barColor: 'bg-slate-400', badgeBg: 'bg-slate-100 text-slate-700 border-slate-300' },
 ];
 
+// 全国1,029名のスキル保有数ごとの人数分布（シミュレーション用テーブル）
+const SKILL_COUNT_DISTRIBUTION: Record<number, number> = {
+  21: 5, 20: 10, 19: 15, 18: 22, // S級 (52名)
+  17: 30, 16: 40, 15: 45, 14: 45, // A級 (160名)
+  13: 80, 12: 110, 11: 115, 10: 110, // B級 (415名)
+  9: 90, 8: 90, 7: 72, 6: 70, // C級 (322名)
+  5: 25, 4: 20, 3: 15, 2: 10, 1: 6, 0: 4 // D級 (80名)
+};
+
+// 個人画面用：分単位の勤務実績データ
 const WORK_HISTORY: Record<string, MonthData> = {
   '2026-10': {
-    monthLabel: '2026年10月度', cumulativeHours: 642, cumulativeSalary: 770400,
+    monthLabel: '2026年10月度',
     records: [
-      { date: '10/01 (木)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
-      { date: '10/02 (金)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
-      { date: '10/05 (月)', hours: 6, timeRange: '10:00 - 17:00 (休1h)' },
-      { date: '10/07 (水)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
-      { date: '10/08 (木)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
-      { date: '10/09 (金)', hours: 5, timeRange: '11:00 - 17:00 (休1h)' },
-      { date: '10/12 (月)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
-      { date: '10/14 (水)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
-      { date: '10/16 (金)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
+      { date: '10/01 (木)', minutes: 455, timeRange: '9:00 - 17:35 (休1h)' }, // 7h35m
+      { date: '10/02 (金)', minutes: 492, timeRange: '9:00 - 18:12 (休1h)' }, // 8h12m
+      { date: '10/05 (月)', minutes: 405, timeRange: '10:00 - 17:45 (休1h)' }, // 6h45m
+      { date: '10/07 (水)', minutes: 440, timeRange: '9:00 - 17:20 (休1h)' }, // 7h20m
+      { date: '10/08 (木)', minutes: 470, timeRange: '9:00 - 17:50 (休1h)' }, // 7h50m
+      { date: '10/09 (金)', minutes: 315, timeRange: '11:00 - 17:15 (休1h)' }, // 5h15m
+      { date: '10/12 (月)', minutes: 485, timeRange: '9:00 - 18:05 (休1h)' }, // 8h05m
+      { date: '10/14 (水)', minutes: 450, timeRange: '9:00 - 17:30 (休1h)' }, // 7h30m
+      { date: '10/16 (金)', minutes: 495, timeRange: '9:00 - 18:15 (休1h)' }, // 8h15m
     ]
   },
   '2026-09': {
-    monthLabel: '2026年9月度', cumulativeHours: 579, cumulativeSalary: 694800,
+    monthLabel: '2026年9月度',
     records: [
-      { date: '09/01 (火)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
-      { date: '09/03 (木)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
-      { date: '09/04 (金)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
-      { date: '09/07 (月)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
-      { date: '09/10 (木)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
-      { date: '09/15 (火)', hours: 6, timeRange: '10:00 - 17:00 (休1h)' },
+      { date: '09/01 (火)', minutes: 435, timeRange: '9:00 - 17:15 (休1h)' },
+      { date: '09/03 (木)', minutes: 440, timeRange: '9:00 - 17:20 (休1h)' },
+      { date: '09/04 (金)', minutes: 490, timeRange: '9:00 - 18:10 (休1h)' },
+      { date: '09/07 (月)', minutes: 430, timeRange: '9:00 - 17:10 (休1h)' },
+      { date: '09/10 (木)', minutes: 485, timeRange: '9:00 - 18:05 (休1h)' },
+      { date: '09/15 (火)', minutes: 395, timeRange: '10:00 - 17:35 (休1h)' },
     ]
   },
   '2026-08': {
-    monthLabel: '2026年8月度', cumulativeHours: 512, cumulativeSalary: 614400,
+    monthLabel: '2026年8月度',
     records: [
-      { date: '08/03 (月)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
-      { date: '08/05 (水)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
-      { date: '08/07 (金)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
-      { date: '08/17 (月)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
-      { date: '08/20 (木)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
+      { date: '08/03 (月)', minutes: 480, timeRange: '9:00 - 18:00 (休1h)' },
+      { date: '08/05 (水)', minutes: 435, timeRange: '9:00 - 17:15 (休1h)' },
+      { date: '08/07 (金)', minutes: 490, timeRange: '9:00 - 18:10 (休1h)' },
+      { date: '08/17 (月)', minutes: 425, timeRange: '9:00 - 17:05 (休1h)' },
+      { date: '08/20 (木)', minutes: 440, timeRange: '9:00 - 17:20 (休1h)' },
     ]
   },
   '2026-07': {
-    monthLabel: '2026年7月度', cumulativeHours: 445, cumulativeSalary: 534000,
+    monthLabel: '2026年7月度',
     records: [
-      { date: '07/02 (木)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
-      { date: '07/06 (月)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
-      { date: '07/09 (木)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
-      { date: '07/15 (水)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
+      { date: '07/02 (木)', minutes: 485, timeRange: '9:00 - 18:05 (休1h)' },
+      { date: '07/06 (月)', minutes: 430, timeRange: '9:00 - 17:10 (休1h)' },
+      { date: '07/09 (木)', minutes: 495, timeRange: '9:00 - 18:15 (休1h)' },
+      { date: '07/15 (水)', minutes: 440, timeRange: '9:00 - 17:20 (休1h)' },
     ]
   },
   '2026-06': {
-    monthLabel: '2026年6月度', cumulativeHours: 375, cumulativeSalary: 450000,
+    monthLabel: '2026年6月度',
     records: [
-      { date: '06/03 (水)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
-      { date: '06/05 (金)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
-      { date: '06/10 (水)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
+      { date: '06/03 (水)', minutes: 430, timeRange: '9:00 - 17:10 (休1h)' },
+      { date: '06/05 (金)', minutes: 485, timeRange: '9:00 - 18:05 (休1h)' },
+      { date: '06/10 (水)', minutes: 435, timeRange: '9:00 - 17:15 (休1h)' },
     ]
   },
   '2026-05': {
-    monthLabel: '2026年5月度', cumulativeHours: 310, cumulativeSalary: 372000,
+    monthLabel: '2026年5月度',
     records: [
-      { date: '05/08 (金)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
-      { date: '05/12 (火)', hours: 8, timeRange: '9:00 - 18:00 (休1h)' },
-      { date: '05/15 (金)', hours: 7, timeRange: '9:00 - 17:00 (休1h)' },
+      { date: '05/08 (金)', minutes: 435, timeRange: '9:00 - 17:15 (休1h)' },
+      { date: '05/12 (火)', minutes: 480, timeRange: '9:00 - 18:00 (休1h)' },
+      { date: '05/15 (金)', minutes: 440, timeRange: '9:00 - 17:20 (休1h)' },
     ]
   }
 };
 
 // ==========================================
-// 3. 共通コンポーネント
+// 3. ユーティリティ関数
+// ==========================================
+// 分数を「○時間○分」に変換
+const formatMinutes = (totalMinutes: number): string => {
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return m > 0 ? `${h}時間${m}分` : `${h}時間`;
+};
+
+// 分単位給与の計算（時給 ÷ 60 × 勤務分数、円未満切り捨て）
+const calculateMinuteSalary = (minutes: number, wage: number): number => {
+  return Math.floor((wage / 60) * minutes);
+};
+
+// ==========================================
+// 4. 共通コンポーネント
 // ==========================================
 const SvgIcon: React.FC<SvgIconProps> = ({ path }) => (
   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -340,7 +383,7 @@ const FastLikeForm: React.FC<FastLikeFormProps> = ({ sentCount, monthlyLikeLimit
 };
 
 // ==========================================
-// 4. アプリケーション本体
+// 5. アプリケーション本体
 // ==========================================
 export default function App() {
   const [currentRole, setCurrentRole] = useState<UserRole>('staff');
@@ -396,16 +439,15 @@ export default function App() {
 
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-10');
 
-  const skillCategories: Record<string, SkillCategoryItem[]> = useMemo(() => {
-    const map: Record<string, SkillCategoryItem[]> = {};
-    SKILL_LIST.forEach((s) => {
-      const match = s.match(/【(.*?)】/);
-      const cat = match ? match[1] : 'その他';
-      const label = s.replace(/【.*?】/, '');
-      if (!map[cat]) {
-        map[cat] = [];
+  // カテゴリ別スキルの整理
+  const skillCategories: Record<string, SkillItem[]> = useMemo(() => {
+    const map: Record<string, SkillItem[]> = {};
+    SKILL_DEFINITIONS.forEach((s) => {
+      const full = `【${s.category}】${s.label}`;
+      if (!map[s.category]) {
+        map[s.category] = [];
       }
-      map[cat].push({ full: s, label });
+      map[s.category].push({ full, label: s.label, icon: s.icon });
     });
     return map;
   }, []);
@@ -418,6 +460,32 @@ export default function App() {
     const found = SKILL_TIERS.find(t => approvedSkillCount >= t.min && approvedSkillCount <= t.max);
     return found ? found : SKILL_TIERS[SKILL_TIERS.length - 1];
   }, [approvedSkillCount]);
+
+  // ★個人順位（全体順位 ＆ クラス内順位）の動的算出
+  const rankStats = useMemo(() => {
+    const totalWorkers = 1029;
+    
+    // 自分よりスキル数が多い人数を合計
+    let higherCount = 0;
+    for (let c = 21; c > approvedSkillCount; c--) {
+      higherCount += SKILL_COUNT_DISTRIBUTION[c] || 0;
+    }
+    const overallRank = higherCount + 1; // 全体順位
+
+    // 現在の所属クラス内での順位
+    let higherInTier = 0;
+    for (let c = currentTier.max; c > approvedSkillCount; c--) {
+      higherInTier += SKILL_COUNT_DISTRIBUTION[c] || 0;
+    }
+    const tierRank = higherInTier + 1; // クラス内順位
+
+    return {
+      overallRank,
+      totalWorkers,
+      tierRank,
+      tierCount: currentTier.count,
+    };
+  }, [approvedSkillCount, currentTier]);
 
   const nextTierInfo = useMemo<NextTierInfo | null>(() => {
     const currentIndex = SKILL_TIERS.findIndex(t => t.name === currentTier.name);
@@ -447,15 +515,32 @@ export default function App() {
 
   const totalPlannedSalary = totalPlannedHours * CURRENT_USER.hourlyWage;
   
+  // ★分単位での勤務実績・給与計算
   const currentMonthData = useMemo(() => {
-    return WORK_HISTORY[selectedMonth] || { monthLabel: '', cumulativeHours: 0, cumulativeSalary: 0, records: [] };
+    return WORK_HISTORY[selectedMonth] || { monthLabel: '', records: [] };
   }, [selectedMonth]);
 
-  const monthlyWorkedHours = useMemo(() => {
-    return currentMonthData.records.reduce((acc, r) => acc + r.hours, 0);
+  // 当月の合計勤務分数
+  const monthlyTotalMinutes = useMemo(() => {
+    return currentMonthData.records.reduce((acc, r) => acc + r.minutes, 0);
   }, [currentMonthData]);
 
-  const monthlySalary = monthlyWorkedHours * CURRENT_USER.hourlyWage;
+  // 当月の分単位給与額
+  const monthlySalary = useMemo(() => {
+    return calculateMinuteSalary(monthlyTotalMinutes, CURRENT_USER.hourlyWage);
+  }, [monthlyTotalMinutes]);
+
+  // 全月度累計の勤務分数と累計給与
+  const cumulativeStats = useMemo(() => {
+    let totalMins = 0;
+    Object.values(WORK_HISTORY).forEach(month => {
+      totalMins += month.records.reduce((acc, r) => acc + r.minutes, 0);
+    });
+    return {
+      totalMinutes: totalMins,
+      totalSalary: calculateMinuteSalary(totalMins, CURRENT_USER.hourlyWage)
+    };
+  }, []);
 
   const displayMoney = (amount: number) => isMoneyVisible ? `¥${amount.toLocaleString()}` : '¥***,***';
   const isSunday = (day: number) => (day - 1) % 7 === 0;
@@ -618,7 +703,9 @@ export default function App() {
         </div>
       )}
 
-      {/* 画面1：パート画面 */}
+      {/* =========================================================================
+          画面1：パート画面
+          ========================================================================= */}
       {currentRole === 'staff' && (
         <>
           <header className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between shadow-md shrink-0 w-full">
@@ -630,7 +717,7 @@ export default function App() {
                   onClick={() => setIsMoneyVisible(!isMoneyVisible)} 
                   className="ml-2 flex items-center text-[11px] font-normal text-slate-300 hover:text-white transition-colors bg-slate-800 px-2 py-0.5 rounded-full"
                 >
-                  時給 {displayMoney(CURRENT_USER.hourlyWage)}
+                  時給 {displayMoney(CURRENT_USER.hourlyWage)} (分給: ¥{(CURRENT_USER.hourlyWage / 60).toFixed(1)})
                   {isMoneyVisible ? <IconEye /> : <IconEyeOff />}
                 </button>
               </div>
@@ -696,7 +783,7 @@ export default function App() {
               <div className="w-full space-y-3">
                 <div className="flex bg-slate-200 p-1 rounded-xl w-full box-border">
                   <button onClick={() => setShiftSubTab('submit')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${shiftSubTab === 'submit' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}>希望提出</button>
-                  <button onClick={() => setShiftSubTab('history')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${shiftSubTab === 'history' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}>全月度 勤務実績</button>
+                  <button onClick={() => setShiftSubTab('history')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${shiftSubTab === 'history' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}>分単位 勤務実績</button>
                 </div>
 
                 {shiftSubTab === 'submit' && (
@@ -772,11 +859,14 @@ export default function App() {
                   </div>
                 )}
 
-                {/* 個人画面：全月度 勤務実績 */}
+                {/* ★個人画面：分単位での勤務実績明細・給与 */}
                 {shiftSubTab === 'history' && (
                   <div className="space-y-3 w-full">
                     <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
-                      <span className="text-xs font-bold text-slate-700">表示月度を選択（全履歴）</span>
+                      <div>
+                        <span className="text-xs font-bold text-slate-700 block">表示月度を選択（全履歴）</span>
+                        <span className="text-[10px] text-slate-400">※分単位計算（時給 ÷ 60）で算出</span>
+                      </div>
                       <select 
                         value={selectedMonth} 
                         onChange={(e) => setSelectedMonth(e.target.value)} 
@@ -793,8 +883,10 @@ export default function App() {
                     <div className="grid grid-cols-2 gap-2.5 w-full">
                       <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
                         <div className="text-[10px] font-bold text-indigo-600 mb-1">【単月】{currentMonthData.monthLabel}</div>
-                        <div className="text-xs text-slate-500">勤務時間合計</div>
-                        <div className="text-lg font-black text-slate-800">{monthlyWorkedHours} <span className="text-xs font-normal">時間</span></div>
+                        <div className="text-xs text-slate-500">実働勤務時間</div>
+                        <div className="text-lg font-black text-slate-800">
+                          {formatMinutes(monthlyTotalMinutes)}
+                        </div>
                         <div className="text-xs text-slate-500 mt-2 flex items-center cursor-pointer" onClick={() => setIsMoneyVisible(!isMoneyVisible)}>
                           給与支給額 {isMoneyVisible ? <IconEye /> : <IconEyeOff />}
                         </div>
@@ -802,25 +894,27 @@ export default function App() {
                       </div>
                       <div className="bg-slate-900 text-white p-3.5 rounded-xl border border-slate-800 shadow-sm">
                         <div className="text-[10px] font-bold text-amber-400 mb-1">【年間累積】</div>
-                        <div className="text-xs text-slate-400">累計勤務時間</div>
-                        <div className="text-lg font-black">{currentMonthData.cumulativeHours} <span className="text-xs font-normal">時間</span></div>
+                        <div className="text-xs text-slate-400">累計実働時間</div>
+                        <div className="text-lg font-black">
+                          {formatMinutes(cumulativeStats.totalMinutes)}
+                        </div>
                         <div className="text-xs text-slate-400 mt-2 flex items-center cursor-pointer" onClick={() => setIsMoneyVisible(!isMoneyVisible)}>
                           累計支給額 {isMoneyVisible ? <IconEye /> : <IconEyeOff />}
                         </div>
-                        <div className="text-lg font-black text-amber-300">{displayMoney(currentMonthData.cumulativeSalary)}</div>
+                        <div className="text-lg font-black text-amber-300">{displayMoney(cumulativeStats.totalSalary)}</div>
                       </div>
                     </div>
 
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 w-full box-border">
                       <div className="flex justify-between items-center mb-2">
-                        <h3 className="text-xs font-bold text-slate-700">日別実績明細（{currentMonthData.records.length}日稼働）</h3>
+                        <h3 className="text-xs font-bold text-slate-700">日別実績明細（{currentMonthData.records.length}日稼働・分単位計算）</h3>
                         <button onClick={() => setIsMoneyVisible(!isMoneyVisible)} className="text-[10px] flex items-center text-slate-400 border border-slate-200 px-2 py-0.5 rounded bg-slate-50">
                           金額表示 {isMoneyVisible ? <IconEye /> : <IconEyeOff />}
                         </button>
                       </div>
                       <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto pr-1">
                         {currentMonthData.records.map((r, idx) => {
-                          const dailyPay = r.hours * CURRENT_USER.hourlyWage;
+                          const dailyPay = calculateMinuteSalary(r.minutes, CURRENT_USER.hourlyWage);
                           return (
                             <div key={idx} className="py-2.5 flex justify-between items-center text-xs">
                               <div>
@@ -828,7 +922,7 @@ export default function App() {
                                 <div className="text-[10px] text-slate-400">{r.timeRange}</div>
                               </div>
                               <div className="text-right">
-                                <div className="font-bold text-slate-700">{r.hours} 時間</div>
+                                <div className="font-bold text-slate-700">{formatMinutes(r.minutes)}</div>
                                 <div className="text-[11px] font-bold text-emerald-600">{displayMoney(dailyPay)}</div>
                               </div>
                             </div>
@@ -853,34 +947,134 @@ export default function App() {
               </div>
             )}
 
+            {/* スキル・順位タブ */}
             {currentTab === 'skills' && (
               <div className="w-full space-y-4">
+                
+                {/* ★個人順位（全体順位 ＆ クラス内順位）を数値で表示 */}
+                <div className="w-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-4 rounded-2xl shadow-md border border-indigo-900/40">
+                  <div className="flex justify-between items-center mb-2 pb-2 border-b border-indigo-800/40">
+                    <span className="text-xs font-bold text-indigo-300">全国パート個人スキル順位</span>
+                    <span className="text-[10px] bg-indigo-500/30 text-indigo-200 px-2 py-0.5 rounded-full font-mono">
+                      全19センター集計
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 my-2">
+                    {/* クラス内順位 */}
+                    <div className="bg-white/10 backdrop-blur-xs p-3 rounded-xl border border-white/10 text-center">
+                      <div className="text-[10px] text-indigo-200 font-bold mb-0.5">
+                        {currentTier.level} {currentTier.name} 内
+                      </div>
+                      <div className="text-xl font-black text-amber-300 tracking-tight">
+                        {rankStats.tierRank} <span className="text-xs font-normal text-slate-300">/ {rankStats.tierCount}位</span>
+                      </div>
+                      <div className="text-[9px] text-slate-400 mt-0.5">（同クラス内順位）</div>
+                    </div>
+
+                    {/* 全国全体順位 */}
+                    <div className="bg-white/10 backdrop-blur-xs p-3 rounded-xl border border-white/10 text-center">
+                      <div className="text-[10px] text-indigo-200 font-bold mb-0.5">全国全体順位</div>
+                      <div className="text-xl font-black text-emerald-300 tracking-tight">
+                        {rankStats.overallRank} <span className="text-xs font-normal text-slate-300">/ {rankStats.totalWorkers}位</span>
+                      </div>
+                      <div className="text-[9px] text-slate-400 mt-0.5">（全国パート1,029名中）</div>
+                    </div>
+                  </div>
+
+                  {nextTierInfo ? (
+                    <div className="text-[11px] bg-indigo-900/50 px-3 py-1.5 rounded-lg text-indigo-100 flex items-center justify-between mt-2">
+                      <span>上位ランク <strong className="text-white">{nextTierInfo.nextLevel} {nextTierInfo.nextName}</strong> まで</span>
+                      <span className="text-amber-300 font-bold">あと {nextTierInfo.remaining} スキル</span>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] bg-amber-500/20 text-amber-200 px-3 py-1.5 rounded-lg text-center font-bold mt-2">
+                      ★ 最高位のマスタークラス（上位5%）に到達しています！
+                    </div>
+                  )}
+                </div>
+
+                {/* スキル登録リスト（アイコン付き＆取得済みスキルの視認性向上） */}
                 <div className="w-full bg-white p-4 rounded-xl shadow-sm border border-slate-200 box-border">
-                  <div className="flex justify-between items-center mb-2">
+                  <div className="flex justify-between items-center mb-1">
                     <h2 className="text-base font-bold text-slate-800">保有スキル申請</h2>
-                    {/* ★「何分の何 習得済」の表示に変更 */}
                     <span className="text-xs bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded-full">
                       {approvedSkillCount} / {SKILL_LIST.length} 習得済
                     </span>
                   </div>
+                  <p className="text-[10px] text-slate-500 mb-3 border-b border-slate-100 pb-2">
+                    スキルをタップして申請します。社員の承認で「習得済（緑色）」になり、順位が上がります。
+                  </p>
+
                   <div className="space-y-2 w-full">
                     {Object.keys(skillCategories).map((category) => {
                       const items = skillCategories[category];
                       const isOpen = Boolean(openCategories[category]);
+                      const categoryApprovedCount = items.filter(i => mySkillStatus[i.full] === 'approved').length;
+                      const hasApproved = categoryApprovedCount > 0;
+
                       return (
-                        <div key={category} className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-                          <button onClick={() => toggleCategory(category)} className="w-full px-3 py-2 bg-slate-50 flex items-center justify-between text-left">
-                            <span className="font-bold text-xs text-slate-800">【{category}】 ({items.length})</span>
-                            <IconChevronDown open={isOpen} />
+                        <div 
+                          key={category} 
+                          className={`border rounded-xl overflow-hidden transition-all ${
+                            hasApproved ? 'border-emerald-200 shadow-xs' : 'border-slate-200'
+                          }`}
+                        >
+                          <button 
+                            onClick={() => toggleCategory(category)} 
+                            className={`w-full px-3 py-2.5 flex items-center justify-between text-left transition-colors ${
+                              hasApproved ? 'bg-emerald-50/50 hover:bg-emerald-50' : 'bg-slate-50 hover:bg-slate-100'
+                            }`}
+                          >
+                            <div className="flex items-center space-x-1.5">
+                              <span className="text-base">{items[0]?.icon}</span>
+                              <span className="font-bold text-xs text-slate-800">【{category}】</span>
+                              <span className="text-[10px] text-slate-400">({items.length})</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                hasApproved ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
+                              }`}>
+                                {categoryApprovedCount} / {items.length} 習得
+                              </span>
+                              <IconChevronDown open={isOpen} />
+                            </div>
                           </button>
+
                           {isOpen && (
-                            <div className="p-2 space-y-1.5 border-t border-slate-100">
-                              {items.map(({ full, label }) => {
+                            <div className="p-2 space-y-1.5 border-t border-slate-100 bg-white">
+                              {items.map(({ full, label, icon }) => {
                                 const status = mySkillStatus[full] || 'none';
+                                const isApproved = status === 'approved';
+                                const isPending = status === 'pending';
+
                                 return (
-                                  <div key={full} onClick={() => toggleSkillStatus(full)} className="p-2 rounded border text-xs flex items-center justify-between cursor-pointer bg-slate-50">
-                                    <span>{label}</span>
-                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200">{status === 'approved' ? '✓ 習得済' : status === 'pending' ? '⌛ 申請中' : '+ 申請'}</span>
+                                  <div 
+                                    key={full} 
+                                    onClick={() => toggleSkillStatus(full)} 
+                                    className={`p-2.5 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition-all ${
+                                      isApproved 
+                                        ? 'bg-emerald-50/80 border-emerald-300 border-l-4 border-l-emerald-600 shadow-xs' 
+                                        : isPending 
+                                        ? 'bg-amber-50/80 border-amber-300 border-dashed text-amber-900' 
+                                        : 'bg-slate-50/80 hover:bg-slate-100 border-slate-200 text-slate-600'
+                                    }`}
+                                  >
+                                    <div className="flex items-center space-x-2 flex-1 pr-2">
+                                      <span className="text-base shrink-0">{icon}</span>
+                                      <span className={`leading-tight font-medium ${isApproved ? 'font-bold text-emerald-950' : ''}`}>
+                                        {label}
+                                      </span>
+                                    </div>
+                                    <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold transition-transform ${
+                                      isApproved 
+                                        ? 'bg-emerald-600 text-white shadow-xs' 
+                                        : isPending 
+                                        ? 'bg-amber-500 text-white animate-pulse' 
+                                        : 'bg-slate-200 text-slate-500'
+                                    }`}>
+                                      {isApproved ? '✓ 習得済' : isPending ? '⌛ 申請中' : '+ 申請'}
+                                    </span>
                                   </div>
                                 );
                               })}
@@ -892,23 +1086,20 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* 全国分布バーグラフ */}
                 <div className="w-full bg-white p-4 rounded-xl shadow-sm border border-slate-200 box-border">
                   <h3 className="text-xs font-bold text-slate-800 mb-2">全国パート社員 スキル分布図（1,029名）</h3>
-                  <div className="bg-slate-900 text-white p-3 rounded-xl mb-3 flex justify-between items-center">
-                    <div>
-                      <div className="text-[10px] text-slate-400">現在地</div>
-                      <div className="text-base font-black text-amber-300">{currentTier.level} {currentTier.name}</div>
-                    </div>
-                    {nextTierInfo && <div className="text-xs text-indigo-300">次まであと {nextTierInfo.remaining} 個</div>}
-                  </div>
-
                   <div className="space-y-2.5">
                     {SKILL_TIERS.map((tier) => {
                       const isCurrent = tier.name === currentTier.name;
                       return (
-                        <div key={tier.name} className={`p-2 rounded-lg border ${isCurrent ? 'bg-indigo-50 border-indigo-400' : 'bg-slate-50 border-slate-200'}`}>
+                        <div key={tier.name} className={`p-2 rounded-lg border ${isCurrent ? 'bg-indigo-50 border-indigo-400 ring-1 ring-indigo-400 shadow-xs' : 'bg-slate-50 border-slate-200'}`}>
                           <div className="flex justify-between text-xs mb-1">
-                            <span className="font-bold text-slate-800">{tier.level} {tier.name} ({tier.range})</span>
+                            <div className="flex items-center space-x-1">
+                              <span className="font-bold text-slate-800">{tier.level} {tier.name}</span>
+                              <span className="text-[10px] text-slate-500">({tier.range})</span>
+                              {isCurrent && <span className="bg-indigo-600 text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold ml-1">現在地</span>}
+                            </div>
                             <span className="text-slate-600 font-bold">{tier.count}名 ({tier.percentage}%)</span>
                           </div>
                           <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
@@ -919,6 +1110,7 @@ export default function App() {
                     })}
                   </div>
                 </div>
+
               </div>
             )}
           </main>
@@ -933,7 +1125,9 @@ export default function App() {
         </>
       )}
 
-      {/* 画面2：所長画面 */}
+      {/* =========================================================================
+          画面2：所長画面 (伊勢原 153名)
+          ========================================================================= */}
       {currentRole === 'center_admin' && (
         <div className="flex-1 overflow-y-auto px-4 py-4 pb-12 w-full box-border">
           <div className="bg-amber-600 text-white p-4 rounded-2xl shadow-md mb-4">
@@ -1029,7 +1223,9 @@ export default function App() {
         </div>
       )}
 
-      {/* 画面3：本部画面 */}
+      {/* =========================================================================
+          画面3：本部画面 (全国19センター・1,029名 横断集計・分析)
+          ========================================================================= */}
       {currentRole === 'super_admin' && (
         <div className="flex-1 overflow-y-auto px-4 py-4 pb-12 w-full box-border">
           <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-md mb-3 border border-slate-800">

@@ -2,9 +2,8 @@ import React, { useState, useMemo, useEffect, FormEvent } from 'react';
 
 // ==========================================
 // ★ Google Apps Script (GAS) Web API URL
-// ※ デプロイして発行されたURLをここに貼り付けると本番連携します
 // ==========================================
-const GAS_API_URL = ''; // 例: 'https://script.google.com/macros/s/AKfycb.../exec'
+const GAS_API_URL = ''; 
 
 // ==========================================
 // 1. 型定義 (TypeScript)
@@ -390,7 +389,6 @@ export default function App() {
   const [centerTab, setCenterTab] = useState<CenterTab>('shift');
   const [superAdminTab, setSuperAdminTab] = useState<SuperAdminTab>('overview');
   
-  // ユーザー情報（スプレッドシートから最新時給を取得して更新）
   const [currentUser, setCurrentUser] = useState(DEFAULT_CURRENT_USER);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
@@ -441,7 +439,6 @@ export default function App() {
 
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-10');
 
-  // ★ 1. スプレッドシートから名簿・時給を自動取得（初期起動時）
   useEffect(() => {
     if (!GAS_API_URL) return;
     const fetchRoster = async () => {
@@ -486,7 +483,6 @@ export default function App() {
     return found ? found : SKILL_TIERS[SKILL_TIERS.length - 1];
   }, [approvedSkillCount]);
 
-  // 個人順位（全体順位 ＆ クラス内順位）
   const rankStats = useMemo(() => {
     const totalWorkers = 1029;
     let higherCount = 0;
@@ -563,9 +559,7 @@ export default function App() {
   const displayMoney = (amount: number) => isMoneyVisible ? `¥${amount.toLocaleString()}` : '¥***,***';
   const isSunday = (day: number) => (day - 1) % 7 === 0;
 
-  // ★ 2. 即時完了 ＆ 自動リトライ機能付きシフト提出処理
   const handleShiftSubmit = async () => {
-    // ① 即時画面切り替え（Optimistic UI）
     setShiftSubmitted(true);
     setSyncStatus('クラウド保存中...');
 
@@ -579,7 +573,6 @@ export default function App() {
       shiftDates: shiftDates,
     };
 
-    // ② バックグラウンドで自動リトライ送信（GAS APIが設定されている場合）
     if (!GAS_API_URL) {
       setTimeout(() => setSyncStatus(null), 2500);
       alert(`合計 ${totalPlannedHours}時間で希望シフトを提出しました。`);
@@ -598,7 +591,6 @@ export default function App() {
         throw new Error('GAS response error');
       } catch (err) {
         if (retries <= 1) return false;
-        // 混雑時は指数バックオフ＋ランダムジッターで順番待ち
         await new Promise(r => setTimeout(r, delay + Math.random() * 500));
         return postWithRetry(retries - 1, delay * 2);
       }
@@ -788,7 +780,7 @@ export default function App() {
                   onClick={() => setIsMoneyVisible(!isMoneyVisible)} 
                   className="ml-2 flex items-center text-[11px] font-normal text-slate-300 hover:text-white transition-colors bg-slate-800 px-2 py-0.5 rounded-full"
                 >
-                  時給 {displayMoney(currentUser.hourlyWage)} (分給: ¥{(currentUser.hourlyWage / 60).toFixed(1)})
+                  時給 {displayMoney(currentUser.hourlyWage)}
                   {isMoneyVisible ? <IconEye /> : <IconEyeOff />}
                 </button>
               </div>
@@ -796,7 +788,6 @@ export default function App() {
             <span className="text-xs bg-emerald-600 px-2 py-0.5 rounded-full font-medium">個人ページ</span>
           </header>
           
-          {/* 同期ステータスバナー */}
           {syncStatus && (
             <div className="bg-indigo-600 text-white text-[11px] px-3 py-1 font-bold text-center transition-all animate-pulse">
               {syncStatus}
@@ -927,7 +918,6 @@ export default function App() {
                         })}
                       </div>
 
-                      {/* ★ 即時完了 ＆ 自動リトライ機能呼び出し */}
                       <button
                         onClick={handleShiftSubmit}
                         className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl text-sm shadow-md active:scale-95 transition-transform"
@@ -1025,11 +1015,10 @@ export default function App() {
               </div>
             )}
 
-            {/* ★ 順序変更：①保有スキル申請 ➔ ②分布図 ➔ ③個人順位 */}
             {currentTab === 'skills' && (
               <div className="w-full space-y-4">
                 
-                {/* 1. 保有スキル申請（アイコン付き＆取得済みスキルの視認性向上） */}
+                {/* 1. 保有スキル申請 */}
                 <div className="w-full bg-white p-4 rounded-xl shadow-sm border border-slate-200 box-border">
                   <div className="flex justify-between items-center mb-1">
                     <h2 className="text-base font-bold text-slate-800">保有スキル申請</h2>
@@ -1146,7 +1135,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 3. 全国パート個人スキル順位（最下部へ移動） */}
+                {/* 3. 全国パート個人スキル順位 */}
                 <div className="w-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-4 rounded-2xl shadow-md border border-indigo-900/40">
                   <div className="flex justify-between items-center mb-2 pb-2 border-b border-indigo-800/40">
                     <span className="text-xs font-bold text-indigo-300">全国パート個人スキル順位</span>

@@ -168,7 +168,7 @@ const SKILL_DEFINITIONS: Array<{ category: string; label: string; icon: string }
 
 const SKILL_LIST: string[] = SKILL_DEFINITIONS.map(s => `【${s.category}】${s.label}`);
 
-const DEFAULT_CURRENT_USER = {
+const DEFAULT_STAFF_USER = {
   id: 'user_182',
   name: '佐々木 深',
   center: '伊勢原',
@@ -383,13 +383,18 @@ const FastLikeForm: React.FC<FastLikeFormProps> = ({ sentCount, monthlyLikeLimit
 // 4. アプリケーション本体
 // ==========================================
 export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true); // 開発・デモ用初期ログイン状態
+  const [loginId, setLoginId] = useState<string>('');
+  const [loginPassword, setLoginPassword] = useState<string>('');
+  const [loginError, setLoginError] = useState<string>('');
+
   const [currentRole, setCurrentRole] = useState<UserRole>('staff');
   const [currentTab, setCurrentTab] = useState<string>('shift');
   const [shiftSubTab, setShiftSubTab] = useState<ShiftSubTab>('submit');
   const [centerTab, setCenterTab] = useState<CenterTab>('shift');
   const [superAdminTab, setSuperAdminTab] = useState<SuperAdminTab>('overview');
   
-  const [currentUser, setCurrentUser] = useState(DEFAULT_CURRENT_USER);
+  const [currentUser, setCurrentUser] = useState(DEFAULT_STAFF_USER);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   const [isMoneyVisible, setIsMoneyVisible] = useState<boolean>(false);
@@ -439,8 +444,77 @@ export default function App() {
 
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-10');
 
+  // ★ 視点切替バー操作時の処理（自動で適切なダミーアカウントに切り替え）
+  const handleSwitchRole = (role: UserRole) => {
+    setCurrentRole(role);
+    setIsLoggedIn(true);
+    if (role === 'staff') {
+      setCurrentUser(DEFAULT_STAFF_USER);
+    } else if (role === 'center_admin') {
+      setCurrentUser({
+        id: 'admin_c1410',
+        name: '木村 裕一',
+        center: '伊勢原',
+        hourlyWage: 0,
+        monthlyLikeLimit: 0,
+      });
+    } else if (role === 'super_admin') {
+      setCurrentUser({
+        id: 'admin_super',
+        name: 'システム管理者',
+        center: 'SC本部',
+        hourlyWage: 0,
+        monthlyLikeLimit: 0,
+      });
+    }
+  };
+
+  // ログインフォーム送信時の処理
+  const handleLogin = (e: FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+
+    const id = loginId.trim();
+    const pw = loginPassword.trim();
+
+    if (!id || !pw) {
+      setLoginError('社員番号とパスワードを入力してください。');
+      return;
+    }
+
+    if (id === 'admin') {
+      handleSwitchRole('super_admin');
+    } else if (id.startsWith('c')) {
+      const centerObj = CENTERS_DATA.find(c => c.id === id);
+      if (centerObj) {
+        setCurrentRole('center_admin');
+        setCurrentUser({ id: `admin_${id}`, name: '木村 裕一', center: centerObj.name, hourlyWage: 0, monthlyLikeLimit: 0 });
+        setIsLoggedIn(true);
+      } else {
+        setLoginError('該当するセンターIDが見つかりません。');
+      }
+    } else {
+      setCurrentRole('staff');
+      setCurrentUser({
+        id: id,
+        name: '佐々木 深',
+        center: '伊勢原',
+        hourlyWage: 1200,
+        monthlyLikeLimit: 3,
+      });
+      setIsLoggedIn(true);
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setLoginId('');
+    setLoginPassword('');
+    setLoginError('');
+  };
+
   useEffect(() => {
-    if (!GAS_API_URL) return;
+    if (!GAS_API_URL || !isLoggedIn || currentRole !== 'staff') return;
     const fetchRoster = async () => {
       try {
         const res = await fetch(`${GAS_API_URL}?center=${encodeURIComponent(currentUser.center)}`);
@@ -460,7 +534,7 @@ export default function App() {
       }
     };
     fetchRoster();
-  }, [currentUser.center, currentUser.id]);
+  }, [currentUser.center, currentUser.id, isLoggedIn, currentRole]);
 
   const skillCategories: Record<string, SkillItem[]> = useMemo(() => {
     const map: Record<string, SkillItem[]> = {};
@@ -638,7 +712,7 @@ export default function App() {
 
     const newMessage: PendingMessage = { 
       id: Date.now(),
-      center: '伊勢原',
+      center: currentUser.center,
       from: currentUser.name, 
       to: targetObj.name, 
       text: message, 
@@ -706,156 +780,221 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen w-full max-w-md mx-auto bg-slate-100 select-none overflow-hidden text-slate-800 relative">
       
-      {/* 視点切替バー */}
+      {/* ★ 視点切替バー（最上部にそのまま維持） */}
       <div className="bg-slate-950 text-white px-2 py-1.5 shrink-0 w-full border-b border-slate-800 z-50">
         <div className="flex items-center justify-between text-[11px]">
           <span className="text-slate-400 font-bold ml-1">視点切替:</span>
-          <div className="flex space-x-1">
+          <div className="flex space-x-1 items-center">
             <button
-              onClick={() => setCurrentRole('staff')}
+              onClick={() => handleSwitchRole('staff')}
               className={`px-2 py-1 rounded font-bold transition-all ${
-                currentRole === 'staff' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                isLoggedIn && currentRole === 'staff' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
               👤 パート
             </button>
             <button
-              onClick={() => setCurrentRole('center_admin')}
+              onClick={() => handleSwitchRole('center_admin')}
               className={`px-2 py-1 rounded font-bold transition-all ${
-                currentRole === 'center_admin' ? 'bg-amber-600 text-white shadow-xs' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                isLoggedIn && currentRole === 'center_admin' ? 'bg-amber-600 text-white shadow-xs' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
               🏢 所長 (伊勢原)
             </button>
             <button
-              onClick={() => setCurrentRole('super_admin')}
+              onClick={() => handleSwitchRole('super_admin')}
               className={`px-2 py-1 rounded font-bold transition-all ${
-                currentRole === 'super_admin' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                isLoggedIn && currentRole === 'super_admin' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
               🌐 本部 (19拠点)
             </button>
+            {isLoggedIn && (
+              <button
+                onClick={handleLogout}
+                className="ml-1 text-[10px] text-slate-400 hover:text-white px-1.5 py-1 rounded bg-slate-800/80 hover:bg-slate-700 transition-colors"
+                title="ログアウト"
+              >
+                🚪
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* 1時間単位選択モーダル */}
-      {selectedDay !== null && (
-        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-end sm:items-center justify-center sm:p-4 pb-0">
-          <div className="bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-xl p-5 shadow-2xl">
-            <h3 className="font-bold text-lg mb-4 text-center text-slate-800">{selectedDay}日 の希望時間</h3>
-            <div className="grid grid-cols-2 gap-2 mb-4 w-full">
-              {HOURS.map(h => {
-                const isSelected = tempHours.includes(h);
-                return (
-                  <button key={h} onClick={() => toggleHour(h)} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${isSelected ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
-                    {h}:00 - {h+1}:00
-                  </button>
-                );
-              })}
+      {/* ログイン前画面 */}
+      {!isLoggedIn && (
+        <div className="flex-1 overflow-y-auto flex items-center justify-center p-4">
+          <div className="bg-white w-full p-6 rounded-2xl shadow-lg border border-slate-200">
+            <div className="text-center mb-6">
+              <h1 className="text-xl font-black text-slate-800 tracking-tight">LOGI-SHIFT PORTAL</h1>
+              <p className="text-xs text-slate-500 mt-1">シフト・スキル統合管理アプリ</p>
             </div>
-            <div className="flex justify-between space-x-2 mb-5 w-full">
-              <button onClick={() => setTempHours([...HOURS])} className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 py-2 rounded-lg text-xs font-bold transition">フル一括 (8h)</button>
-              <button onClick={() => setTempHours([])} className="flex-1 bg-slate-100 text-slate-500 py-2 rounded-lg text-xs font-bold border border-slate-200">クリア (休み)</button>
-            </div>
-            <div className="flex space-x-2.5 w-full">
-              <button onClick={() => setSelectedDay(null)} className="flex-1 border-2 border-slate-200 text-slate-600 py-2.5 rounded-xl text-sm font-bold">キャンセル</button>
-              <button onClick={saveHours} className="flex-[2] bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-bold shadow-md active:scale-95 transition-transform">決定 ({tempHours.length}時間)</button>
+
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">社員番号（ID）</label>
+                <input
+                  type="text"
+                  value={loginId}
+                  onChange={(e) => setLoginId(e.target.value)}
+                  placeholder="例: user_182"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-sm focus:border-indigo-500 focus:bg-white transition-colors"
+                  autoComplete="username"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">パスワード</label>
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="パスワードを入力"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-sm focus:border-indigo-500 focus:bg-white transition-colors"
+                  autoComplete="current-password"
+                />
+              </div>
+              
+              {loginError && (
+                <div className="text-xs font-bold text-red-600 bg-red-50 p-2 rounded border border-red-200 text-center">
+                  {loginError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-sm shadow-md transition-colors mt-2"
+              >
+                ログイン
+              </button>
+            </form>
+
+            <div className="mt-6 p-3 bg-slate-50 rounded-lg text-[10px] text-slate-500 border border-slate-200">
+              <p className="font-bold text-slate-700 mb-1">【ログイン案内】</p>
+              <p>画面上部の「視点切替」ボタンを押すことで、各役割の画面を即座に開くことも可能です。</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* =========================================================================
-          画面1：パート画面
-          ========================================================================= */}
-      {currentRole === 'staff' && (
+      {/* ログイン後画面 */}
+      {isLoggedIn && (
         <>
-          <header className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between shadow-md shrink-0 w-full">
-            <div>
-              <div className="text-xs text-slate-400">{currentUser.center}センター</div>
-              <div className="text-sm font-bold flex items-center">
-                {currentUser.name} さん 
-                <button 
-                  onClick={() => setIsMoneyVisible(!isMoneyVisible)} 
-                  className="ml-2 flex items-center text-[11px] font-normal text-slate-300 hover:text-white transition-colors bg-slate-800 px-2 py-0.5 rounded-full"
-                >
-                  時給 {displayMoney(currentUser.hourlyWage)}
-                  {isMoneyVisible ? <IconEye /> : <IconEyeOff />}
-                </button>
+          {/* 1時間単位選択モーダル */}
+          {selectedDay !== null && (
+            <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-end sm:items-center justify-center sm:p-4 pb-0">
+              <div className="bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-xl p-5 shadow-2xl">
+                <h3 className="font-bold text-lg mb-4 text-center text-slate-800">{selectedDay}日 の希望時間</h3>
+                <div className="grid grid-cols-2 gap-2 mb-4 w-full">
+                  {HOURS.map(h => {
+                    const isSelected = tempHours.includes(h);
+                    return (
+                      <button key={h} onClick={() => toggleHour(h)} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${isSelected ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                        {h}:00 - {h+1}:00
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between space-x-2 mb-5 w-full">
+                  <button onClick={() => setTempHours([...HOURS])} className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 py-2 rounded-lg text-xs font-bold transition">フル一括 (8h)</button>
+                  <button onClick={() => setTempHours([])} className="flex-1 bg-slate-100 text-slate-500 py-2 rounded-lg text-xs font-bold border border-slate-200">クリア (休み)</button>
+                </div>
+                <div className="flex space-x-2.5 w-full">
+                  <button onClick={() => setSelectedDay(null)} className="flex-1 border-2 border-slate-200 text-slate-600 py-2.5 rounded-xl text-sm font-bold">キャンセル</button>
+                  <button onClick={saveHours} className="flex-[2] bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-bold shadow-md active:scale-95 transition-transform">決定 ({tempHours.length}時間)</button>
+                </div>
               </div>
-            </div>
-            <span className="text-xs bg-emerald-600 px-2 py-0.5 rounded-full font-medium">個人ページ</span>
-          </header>
-          
-          {syncStatus && (
-            <div className="bg-indigo-600 text-white text-[11px] px-3 py-1 font-bold text-center transition-all animate-pulse">
-              {syncStatus}
             </div>
           )}
 
-          {activeCall && (
-            <div className="bg-red-600 text-white px-4 py-2.5 shadow-md shrink-0 w-full flex items-center justify-between animate-pulse">
-              <div className="text-xs font-bold flex items-center space-x-1.5 truncate">
-                <span role="img" aria-label="alert">🚨</span>
-                <span className="truncate">【呼出中】{activeCall.targetName} へ [{activeCall.priority}優先] {activeCall.reasonLabel}</span>
-              </div>
-              <span className="text-[10px] bg-black/30 px-2 py-0.5 rounded shrink-0 ml-2 font-mono">{activeCall.calledAt}発信</span>
-            </div>
-          )}
-
-          <main className="flex-1 overflow-y-auto px-4 py-4 pb-24 w-full box-border">
-            {currentTab === 'call' && (
-              <div className="w-full space-y-4">
-                {activeCall ? (
-                  <div className="w-full bg-red-50 border-2 border-red-400 rounded-xl p-4 shadow-sm box-border">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-black text-red-700 uppercase tracking-wider flex items-center">
-                        <span className="w-2.5 h-2.5 bg-red-600 rounded-full inline-block mr-1.5 animate-ping"></span>
-                        社員の対応をお待ちください
-                      </span>
-                      <span className="text-xs font-mono font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded">{activeCall.calledAt} 発信</span>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg border border-red-200 mb-3 space-y-1">
-                      <div className="text-xs text-slate-600">呼び出し宛先：<span className="font-bold text-slate-800">{activeCall.targetName}</span></div>
-                      <div className="text-xs text-slate-600">内容：<span className="font-bold text-red-600">[{activeCall.priority}優先] {activeCall.reasonLabel}</span></div>
-                    </div>
-                    <div className="flex space-x-2">
-                      <button onClick={() => handleClearCall(true)} className="flex-[2] bg-emerald-600 text-white font-bold py-2.5 rounded-lg text-xs shadow">✓ 社員が対応完了（解除）</button>
-                      <button onClick={() => handleClearCall(false)} className="flex-1 bg-slate-200 text-slate-700 font-bold py-2.5 rounded-lg text-xs">取消</button>
-                    </div>
+          {/* 画面1：パート画面 */}
+          {currentRole === 'staff' && (
+            <>
+              <header className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between shadow-md shrink-0 w-full">
+                <div>
+                  <div className="text-xs text-slate-400">{currentUser.center}センター</div>
+                  <div className="text-sm font-bold flex items-center">
+                    {currentUser.name} さん 
+                    <button 
+                      onClick={() => setIsMoneyVisible(!isMoneyVisible)} 
+                      className="ml-2 flex items-center text-[11px] font-normal text-slate-300 hover:text-white transition-colors bg-slate-800 px-2 py-0.5 rounded-full"
+                    >
+                      時給 {displayMoney(currentUser.hourlyWage)}
+                      {isMoneyVisible ? <IconEye /> : <IconEyeOff />}
+                    </button>
                   </div>
-                ) : (
-                  <div className="w-full bg-white p-4 rounded-xl shadow-sm border border-slate-200 box-border">
-                    <h2 className="text-base font-bold text-slate-800 mb-4">社員呼び出し</h2>
-                    <div className="mb-5 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                      <label className="text-xs font-bold text-slate-600 block mb-2">1. 誰を呼び出しますか？</label>
-                      <select value={callTargetStaff} onChange={(e) => setCallTargetStaff(e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg p-2 text-sm font-bold text-slate-700 shadow-sm">
-                        <option value="all">社員全員（手が空いている人）</option>
-                        {STAFF_LIST.map((s) => (<option key={s.id} value={s.id}>{s.name} ({s.center})</option>))}
-                      </select>
-                    </div>
-                    <label className="text-xs font-bold text-slate-600 block mb-2">2. トラブル・質問内容（優先度順）</label>
-                    <div className="grid grid-cols-1 gap-2.5 w-full">
-                      {CALL_REASONS.map((r) => (
-                        <button key={r.id} onClick={() => handleCallStaff(r)} className={`${r.color} w-full p-4 rounded-xl text-left font-bold shadow flex items-center justify-between box-border`}>
-                          <span>{r.label}</span><span className="text-xs bg-black/20 px-2 py-1 rounded shrink-0">優先度: {r.priority}</span>
-                        </button>
-                      ))}
-                    </div>
+                </div>
+                <span className="text-xs bg-emerald-600 px-2 py-0.5 rounded-full font-medium">個人ページ</span>
+              </header>
+              
+              {syncStatus && (
+                <div className="bg-indigo-600 text-white text-[11px] px-3 py-1 font-bold text-center transition-all animate-pulse">
+                  {syncStatus}
+                </div>
+              )}
+
+              {activeCall && (
+                <div className="bg-red-600 text-white px-4 py-2.5 shadow-md shrink-0 w-full flex items-center justify-between animate-pulse">
+                  <div className="text-xs font-bold flex items-center space-x-1.5 truncate">
+                    <span role="img" aria-label="alert">🚨</span>
+                    <span className="truncate">【呼出中】{activeCall.targetName} へ [{activeCall.priority}優先] {activeCall.reasonLabel}</span>
+                  </div>
+                  <span className="text-[10px] bg-black/30 px-2 py-0.5 rounded shrink-0 ml-2 font-mono">{activeCall.calledAt}発信</span>
+                </div>
+              )}
+
+              <main className="flex-1 overflow-y-auto px-4 py-4 pb-24 w-full box-border">
+                {currentTab === 'call' && (
+                  <div className="w-full space-y-4">
+                    {activeCall ? (
+                      <div className="w-full bg-red-50 border-2 border-red-400 rounded-xl p-4 shadow-sm box-border">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-black text-red-700 uppercase tracking-wider flex items-center">
+                            <span className="w-2.5 h-2.5 bg-red-600 rounded-full inline-block mr-1.5 animate-ping"></span>
+                            社員の対応をお待ちください
+                          </span>
+                          <span className="text-xs font-mono font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded">{activeCall.calledAt} 発信</span>
+                        </div>
+                        <div className="bg-white p-3 rounded-lg border border-red-200 mb-3 space-y-1">
+                          <div className="text-xs text-slate-600">呼び出し宛先：<span className="font-bold text-slate-800">{activeCall.targetName}</span></div>
+                          <div className="text-xs text-slate-600">内容：<span className="font-bold text-red-600">[{activeCall.priority}優先] {activeCall.reasonLabel}</span></div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <button onClick={() => handleClearCall(true)} className="flex-[2] bg-emerald-600 text-white font-bold py-2.5 rounded-lg text-xs shadow">✓ 社員が対応完了（解除）</button>
+                          <button onClick={() => handleClearCall(false)} className="flex-1 bg-slate-200 text-slate-700 font-bold py-2.5 rounded-lg text-xs">取消</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-full bg-white p-4 rounded-xl shadow-sm border border-slate-200 box-border">
+                        <h2 className="text-base font-bold text-slate-800 mb-4">社員呼び出し</h2>
+                        <div className="mb-5 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                          <label className="text-xs font-bold text-slate-600 block mb-2">1. 誰を呼び出しますか？</label>
+                          <select value={callTargetStaff} onChange={(e) => setCallTargetStaff(e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg p-2 text-sm font-bold text-slate-700 shadow-sm">
+                            <option value="all">社員全員（手が空いている人）</option>
+                            {STAFF_LIST.map((s) => (<option key={s.id} value={s.id}>{s.name} ({s.center})</option>))}
+                          </select>
+                        </div>
+                        <label className="text-xs font-bold text-slate-600 block mb-2">2. トラブル・質問内容（優先度順）</label>
+                        <div className="grid grid-cols-1 gap-2.5 w-full">
+                          {CALL_REASONS.map((r) => (
+                            <button key={r.id} onClick={() => handleCallStaff(r)} className={`${r.color} w-full p-4 rounded-xl text-left font-bold shadow flex items-center justify-between box-border`}>
+                              <span>{r.label}</span><span className="text-xs bg-black/20 px-2 py-1 rounded shrink-0">優先度: {r.priority}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-            )}
 
-            {currentTab === 'shift' && (
-              <div className="w-full space-y-3">
-                <div className="flex bg-slate-200 p-1 rounded-xl w-full box-border">
-                  <button onClick={() => setShiftSubTab('submit')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${shiftSubTab === 'submit' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}>希望提出</button>
-                  <button onClick={() => setShiftSubTab('history')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${shiftSubTab === 'history' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}>分単位 勤務実績</button>
-                </div>
+                {currentTab === 'shift' && (
+                  <div className="w-full space-y-3">
+                    <div className="flex bg-slate-200 p-1 rounded-xl w-full box-border">
+                      <button onClick={() => setShiftSubTab('submit')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${shiftSubTab === 'submit' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}>希望提出</button>
+                      <button onClick={() => setShiftSubTab('history')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${shiftSubTab === 'history' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}>分単位 勤務実績</button>
+                    </div>
 
-                {shiftSubTab === 'submit' && (
+                    {shiftSubTab === 'submit' && (
                   <div className="space-y-3 w-full">
                     <div className={`p-3.5 rounded-xl shadow-sm border box-border ${isDeadlinePassed ? 'bg-rose-50 border-rose-200' : 'bg-blue-50 border-blue-200'}`}>
                       <div className="flex items-center justify-between mb-2">
@@ -1187,293 +1326,289 @@ export default function App() {
               </button>
             ))}
           </nav>
-        </>
-      )}
-
-      {/* =========================================================================
-          画面2：所長画面 (伊勢原 153名)
-          ========================================================================= */}
-      {currentRole === 'center_admin' && (
-        <div className="flex-1 overflow-y-auto px-4 py-4 pb-12 w-full box-border">
-          <div className="bg-amber-600 text-white p-4 rounded-2xl shadow-md mb-4">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-xs bg-black/20 px-2 py-0.5 rounded font-bold">拠点長ダッシュボード</span>
-              <span className="text-xs font-mono">管理者: 木村 裕一 所長</span>
-            </div>
-            <h1 className="text-lg font-black">伊勢原センター 管理画面</h1>
-            <p className="text-xs text-amber-100 mt-1">自センター在籍: 153名 （他センターのデータはアクセス不可）</p>
-          </div>
-
-          <div className="flex bg-slate-200 p-1 rounded-xl mb-4 w-full">
-            <button onClick={() => setCenterTab('shift')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${centerTab === 'shift' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600'}`}>シフト集計</button>
-            <button onClick={() => setCenterTab('skills')} className={`flex-1 py-2 text-xs font-bold rounded-lg relative ${centerTab === 'skills' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600'}`}>
-              スキル承認
-              {pendingSkillApprovals.length > 0 && <span className="ml-1 bg-red-500 text-white px-1.5 py-0.2 rounded-full text-[9px]">{pendingSkillApprovals.length}</span>}
-            </button>
-            <button onClick={() => setCenterTab('likes')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${centerTab === 'likes' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600'}`}>カード承認</button>
-          </div>
-
-          {centerTab === 'shift' && (
-            <div className="space-y-4">
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-bold text-sm text-slate-800">翌週シフト提出状況</h3>
-                  <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">充足率: 93%</span>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center">
-                    <span className="text-[10px] text-slate-500 block">提出済み</span>
-                    <span className="text-xl font-black text-indigo-600">142 <span className="text-xs font-normal text-slate-600">/ 153名</span></span>
-                  </div>
-                  <div className="bg-rose-50 p-3 rounded-lg border border-rose-200 text-center">
-                    <span className="text-[10px] text-rose-600 block">未提出者</span>
-                    <span className="text-xl font-black text-rose-600">11 <span className="text-xs font-normal text-slate-600">名</span></span>
-                  </div>
-                </div>
-
-                <button 
-                  onClick={() => alert('伊勢原センター（153名）専用のシフト集計Excelファイルをダウンロードしました。')}
-                  className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 rounded-lg text-xs flex items-center justify-center space-x-1 shadow"
-                >
-                  <span>📊 伊勢原センター専用Excel出力 (ヒートマップ付き)</span>
-                </button>
-              </div>
-            </div>
+            </>
           )}
 
-          {centerTab === 'skills' && (
-            <div className="space-y-3">
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                <h3 className="font-bold text-sm text-slate-800 mb-2">パートからのスキル習得申請一覧</h3>
-                {pendingSkillApprovals.length === 0 ? (
-                  <div className="text-center py-6 text-slate-400 text-xs">承認待ちのスキル申請はありません。</div>
-                ) : (
-                  <div className="space-y-2.5">
-                    {pendingSkillApprovals.map((item) => (
-                      <div key={item.id} className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-bold text-slate-800">{item.staffName} さん</span>
-                          <span className="text-[10px] text-slate-400">{item.appliedAt}</span>
-                        </div>
-                        <div className="text-indigo-900 font-bold mb-2">申請: {item.skillName}</div>
-                        <div className="flex space-x-2">
-                          <button onClick={() => handleApproveSkill(item.id, true)} className="flex-1 bg-indigo-600 text-white font-bold py-1.5 rounded text-xs shadow">✓ 承認する</button>
-                          <button onClick={() => handleApproveSkill(item.id, false)} className="flex-1 bg-slate-200 text-slate-600 font-bold py-1.5 rounded text-xs">差戻し</button>
-                        </div>
+          {/* 画面2：所長画面 */}
+          {currentRole === 'center_admin' && (
+            <div className="flex-1 overflow-y-auto px-4 py-4 pb-12 w-full box-border">
+              <div className="bg-amber-600 text-white p-4 rounded-2xl shadow-md mb-4 mt-2">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs bg-black/20 px-2 py-0.5 rounded font-bold">拠点長ダッシュボード</span>
+                  <span className="text-xs font-mono">管理者: {currentUser.name} 所長</span>
+                </div>
+                <h1 className="text-lg font-black">{currentUser.center}センター 管理画面</h1>
+                <p className="text-xs text-amber-100 mt-1">自センター在籍: 153名 （他センターのデータはアクセス不可）</p>
+              </div>
+
+              <div className="flex bg-slate-200 p-1 rounded-xl mb-4 w-full">
+                <button onClick={() => setCenterTab('shift')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${centerTab === 'shift' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600'}`}>シフト集計</button>
+                <button onClick={() => setCenterTab('skills')} className={`flex-1 py-2 text-xs font-bold rounded-lg relative ${centerTab === 'skills' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600'}`}>
+                  スキル承認
+                  {pendingSkillApprovals.length > 0 && <span className="ml-1 bg-red-500 text-white px-1.5 py-0.2 rounded-full text-[9px]">{pendingSkillApprovals.length}</span>}
+                </button>
+                <button onClick={() => setCenterTab('likes')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${centerTab === 'likes' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600'}`}>カード承認</button>
+              </div>
+
+              {centerTab === 'shift' && (
+                <div className="space-y-4">
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="font-bold text-sm text-slate-800">翌週シフト提出状況</h3>
+                      <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">充足率: 93%</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center">
+                        <span className="text-[10px] text-slate-500 block">提出済み</span>
+                        <span className="text-xl font-black text-indigo-600">142 <span className="text-xs font-normal text-slate-600">/ 153名</span></span>
+                      </div>
+                      <div className="bg-rose-50 p-3 rounded-lg border border-rose-200 text-center">
+                        <span className="text-[10px] text-rose-600 block">未提出者</span>
+                        <span className="text-xl font-black text-rose-600">11 <span className="text-xs font-normal text-slate-600">名</span></span>
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={() => alert(`${currentUser.center}センター専用のシフト集計Excelファイルをダウンロードしました。`)}
+                      className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 rounded-lg text-xs flex items-center justify-center space-x-1 shadow"
+                    >
+                      <span>📊 {currentUser.center}センター専用Excel出力 (ヒートマップ付き)</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {centerTab === 'skills' && (
+                <div className="space-y-3">
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 className="font-bold text-sm text-slate-800 mb-2">パートからのスキル習得申請一覧</h3>
+                    {pendingSkillApprovals.length === 0 ? (
+                      <div className="text-center py-6 text-slate-400 text-xs">承認待ちのスキル申請はありません。</div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {pendingSkillApprovals.map((item) => (
+                          <div key={item.id} className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="font-bold text-slate-800">{item.staffName} さん</span>
+                              <span className="text-[10px] text-slate-400">{item.appliedAt}</span>
+                            </div>
+                            <div className="text-indigo-900 font-bold mb-2">申請: {item.skillName}</div>
+                            <div className="flex space-x-2">
+                              <button onClick={() => handleApproveSkill(item.id, true)} className="flex-1 bg-indigo-600 text-white font-bold py-1.5 rounded text-xs shadow">✓ 承認する</button>
+                              <button onClick={() => handleApproveSkill(item.id, false)} className="flex-1 bg-slate-200 text-slate-600 font-bold py-1.5 rounded text-xs">差戻し</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {centerTab === 'likes' && (
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <h3 className="font-bold text-sm text-slate-800 mb-2">サンクスカード承認（所長検閲）</h3>
+                  <div className="space-y-2">
+                    {allMessages.filter(m => m.center === currentUser.center && m.status === 'pending').map((m) => (
+                      <div key={m.id} className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs">
+                        <div className="font-bold text-slate-700 mb-1">{m.from} ➔ {m.to} 宛て</div>
+                        <p className="text-slate-600 mb-2 bg-white p-2 rounded border border-amber-100">{m.text}</p>
+                        <button onClick={() => handleApproveLike(m.id)} className="w-full bg-rose-500 text-white font-bold py-1.5 rounded text-xs shadow">
+                          ✓ 承認して相手に届ける
+                        </button>
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
-          {centerTab === 'likes' && (
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="font-bold text-sm text-slate-800 mb-2">サンクスカード承認（所長検閲）</h3>
-              <div className="space-y-2">
-                {allMessages.filter(m => m.center === '伊勢原' && m.status === 'pending').map((m) => (
-                  <div key={m.id} className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs">
-                    <div className="font-bold text-slate-700 mb-1">{m.from} ➔ {m.to} 宛て</div>
-                    <p className="text-slate-600 mb-2 bg-white p-2 rounded border border-amber-100">{m.text}</p>
-                    <button onClick={() => handleApproveLike(m.id)} className="w-full bg-rose-500 text-white font-bold py-1.5 rounded text-xs shadow">
-                      ✓ 承認して相手に届ける
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* =========================================================================
-          画面3：本部画面 (全国19センター・1,029名 横断集計・分析)
-          ========================================================================= */}
-      {currentRole === 'super_admin' && (
-        <div className="flex-1 overflow-y-auto px-4 py-4 pb-12 w-full box-border">
-          <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-md mb-3 border border-slate-800">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-xs bg-emerald-600 px-2 py-0.5 rounded font-bold">SC本部 最高管理権限</span>
-              <span className="text-xs text-slate-400 font-mono">全国19拠点 総合統括</span>
-            </div>
-            <h1 className="text-lg font-black">全国19センター 総合分析</h1>
-            <p className="text-xs text-slate-300 mt-0.5">全社パート総数: 1,029名 / 総提出率: 92.3%</p>
-          </div>
-
-          <div className="flex bg-slate-200 p-1 rounded-xl mb-3 w-full">
-            <button 
-              onClick={() => setSuperAdminTab('overview')} 
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${superAdminTab === 'overview' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}
-            >
-              拠点サマリー
-            </button>
-            <button 
-              onClick={() => setSuperAdminTab('skills')} 
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${superAdminTab === 'skills' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}
-            >
-              スキル習得率
-            </button>
-            <button 
-              onClick={() => setSuperAdminTab('likes')} 
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${superAdminTab === 'likes' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}
-            >
-              いいね・メッセージ
-            </button>
-          </div>
-
-          {superAdminTab === 'overview' && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-3 gap-2">
-                <div className="bg-white p-2.5 rounded-xl border border-slate-200 text-center shadow-xs">
-                  <span className="text-[9px] text-slate-500 block">全国総在籍</span>
-                  <span className="text-base font-black text-slate-800">1,029 <span className="text-[10px] font-normal">名</span></span>
-                </div>
-                <div className="bg-white p-2.5 rounded-xl border border-slate-200 text-center shadow-xs">
-                  <span className="text-[9px] text-slate-500 block">提出済み</span>
-                  <span className="text-base font-black text-indigo-600">950 <span className="text-[10px] font-normal">名</span></span>
-                </div>
-                <div className="bg-rose-50 p-2.5 rounded-xl border border-rose-200 text-center shadow-xs">
-                  <span className="text-[9px] text-rose-600 block">要対応拠点</span>
-                  <span className="text-base font-black text-rose-600">2 <span className="text-[10px] font-normal">拠点</span></span>
-                </div>
-              </div>
-
-              <button 
-                onClick={() => alert('全国19センター・1,029名分のシフト希望統合Excelを出力しました。')}
-                className="w-full bg-indigo-700 hover:bg-indigo-800 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center space-x-1 shadow-md"
-              >
-                <span>📥 全国19拠点 統合シフト希望データ (Excel一括出力)</span>
-              </button>
-
-              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                <h3 className="font-bold text-xs text-slate-800 mb-2">全国19拠点 シフト充足率・稼働状況一覧</h3>
-                <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
-                  {CENTERS_DATA.map((c) => (
-                    <div key={c.id} className="py-2.5 flex items-center justify-between text-xs">
-                      <div>
-                        <div className="flex items-center space-x-1.5">
-                          <span className="font-bold text-slate-800">{c.name}</span>
-                          <span className="text-[9px] text-slate-400 bg-slate-100 px-1 py-0.2 rounded">{c.region}</span>
-                        </div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">
-                          提出: {c.submittedCount}/{c.staffCount}名 ({Math.round((c.submittedCount/c.staffCount)*100)}%)
-                        </div>
-                        {c.alert && (
-                          <span className="inline-block mt-0.5 text-[9px] bg-red-100 text-red-700 font-bold px-1.5 py-0.2 rounded">
-                            ⚠️ {c.alert}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="text-right">
-                        <span className={`text-xs font-black px-2 py-0.5 rounded ${
-                          c.fillRate >= 90 ? 'bg-emerald-100 text-emerald-800' :
-                          c.fillRate >= 80 ? 'bg-amber-100 text-amber-800' :
-                          'bg-rose-100 text-rose-800'
-                        }`}>
-                          充足率 {c.fillRate}%
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {superAdminTab === 'skills' && (
-            <div className="space-y-3">
-              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-bold text-xs text-slate-800">全19センター スキル習得進捗・多能工化率</h3>
-                  <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-bold">全社平均: 4.8個</span>
-                </div>
-                <p className="text-[10px] text-slate-500 mb-3">各拠点のパート従業員におけるスキル習得進捗と1人あたり平均保有数です。</p>
-
-                <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
-                  {CENTERS_DATA.map((c) => (
-                    <div key={c.id} className="py-2.5 flex items-center justify-between text-xs">
-                      <div>
-                        <div className="flex items-center space-x-1.5">
-                          <span className="font-bold text-slate-800">{c.name}</span>
-                          <span className="text-[9px] text-slate-400 bg-slate-100 px-1 py-0.2 rounded">{c.staffCount}名</span>
-                        </div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">
-                          1人あたり平均: <strong className="text-slate-700">{c.avgSkills} 個</strong>
-                        </div>
-                      </div>
-
-                      <div className="text-right flex items-center space-x-2">
-                        <div className="w-16 bg-slate-200 rounded-full h-2 overflow-hidden hidden sm:block">
-                          <div className="bg-indigo-600 h-full" style={{ width: `${c.skillRate}%` }} />
-                        </div>
-                        <span className={`text-xs font-black px-2 py-0.5 rounded ${
-                          c.skillRate >= 70 ? 'bg-emerald-100 text-emerald-800' :
-                          c.skillRate >= 60 ? 'bg-indigo-100 text-indigo-800' :
-                          'bg-amber-100 text-amber-800'
-                        }`}>
-                          進捗 {c.skillRate}%
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {superAdminTab === 'likes' && (
-            <div className="space-y-3">
-              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+          {/* 画面3：本部画面 */}
+          {currentRole === 'super_admin' && (
+            <div className="flex-1 overflow-y-auto px-4 py-4 pb-12 w-full box-border">
+              <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-md mb-3 mt-2 border border-slate-800">
                 <div className="flex justify-between items-center mb-1">
-                  <h3 className="font-bold text-xs text-slate-800">全センター いいね（サンクスカード）運用率</h3>
-                  <span className="text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded font-bold">全社平均: 81%</span>
+                  <span className="text-xs bg-emerald-600 px-2 py-0.5 rounded font-bold">SC本部 最高管理権限</span>
+                  <span className="text-xs text-slate-400 font-mono">全国19拠点 総合統括</span>
                 </div>
-                <p className="text-[10px] text-slate-500 mb-2">各センターの月間送信枠（月3件）に対する消化率です。</p>
-
-                <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
-                  {CENTERS_DATA.map((c) => (
-                    <div key={c.id} className="p-2 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between text-xs">
-                      <span className="font-bold text-slate-700 truncate">{c.name}</span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                        c.likeUsageRate >= 80 ? 'bg-rose-100 text-rose-700' :
-                        c.likeUsageRate >= 65 ? 'bg-slate-200 text-slate-700' :
-                        'bg-amber-100 text-amber-800'
-                      }`}>
-                        {c.likeUsageRate}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <h1 className="text-lg font-black">全国19センター 総合分析</h1>
+                <p className="text-xs text-slate-300 mt-0.5">全社パート総数: 1,029名 / 総提出率: 92.3%</p>
               </div>
 
-              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-bold text-xs text-slate-800">全国サンクスカード メッセージ履歴（全社）</h3>
-                  <span className="text-[10px] text-slate-400">最新順</span>
-                </div>
+              <div className="flex bg-slate-200 p-1 rounded-xl mb-3 w-full">
+                <button 
+                  onClick={() => setSuperAdminTab('overview')} 
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${superAdminTab === 'overview' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}
+                >
+                  拠点サマリー
+                </button>
+                <button 
+                  onClick={() => setSuperAdminTab('skills')} 
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${superAdminTab === 'skills' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}
+                >
+                  スキル習得率
+                </button>
+                <button 
+                  onClick={() => setSuperAdminTab('likes')} 
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${superAdminTab === 'likes' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}
+                >
+                  いいね・メッセージ
+                </button>
+              </div>
 
-                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                  {allMessages.map((m) => (
-                    <div key={m.id} className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs">
-                      <div className="flex justify-between items-center mb-1">
-                        <div className="flex items-center space-x-1.5">
-                          <span className="bg-slate-800 text-white font-bold text-[9px] px-1.5 py-0.2 rounded">{m.center}</span>
-                          <span className="font-bold text-slate-800">{m.from} ➔ {m.to}</span>
+              {superAdminTab === 'overview' && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-200 text-center shadow-xs">
+                      <span className="text-[9px] text-slate-500 block">全国総在籍</span>
+                      <span className="text-base font-black text-slate-800">1,029 <span className="text-[10px] font-normal">名</span></span>
+                    </div>
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-200 text-center shadow-xs">
+                      <span className="text-[9px] text-slate-500 block">提出済み</span>
+                      <span className="text-base font-black text-indigo-600">950 <span className="text-[10px] font-normal">名</span></span>
+                    </div>
+                    <div className="bg-rose-50 p-2.5 rounded-xl border border-rose-200 text-center shadow-xs">
+                      <span className="text-[9px] text-rose-600 block">要対応拠点</span>
+                      <span className="text-base font-black text-rose-600">2 <span className="text-[10px] font-normal">拠点</span></span>
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => alert('全国19センター・1,029名分のシフト希望統合Excelを出力しました。')}
+                    className="w-full bg-indigo-700 hover:bg-indigo-800 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center space-x-1 shadow-md"
+                  >
+                    <span>📥 全国19拠点 統合シフト希望データ (Excel一括出力)</span>
+                  </button>
+
+                  <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 className="font-bold text-xs text-slate-800 mb-2">全国19拠点 シフト充足率・稼働状況一覧</h3>
+                    <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
+                      {CENTERS_DATA.map((c) => (
+                        <div key={c.id} className="py-2.5 flex items-center justify-between text-xs">
+                          <div>
+                            <div className="flex items-center space-x-1.5">
+                              <span className="font-bold text-slate-800">{c.name}</span>
+                              <span className="text-[9px] text-slate-400 bg-slate-100 px-1 py-0.2 rounded">{c.region}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">
+                              提出: {c.submittedCount}/{c.staffCount}名 ({Math.round((c.submittedCount/c.staffCount)*100)}%)
+                            </div>
+                            {c.alert && (
+                              <span className="inline-block mt-0.5 text-[9px] bg-red-100 text-red-700 font-bold px-1.5 py-0.2 rounded">
+                                ⚠️ {c.alert}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="text-right">
+                            <span className={`text-xs font-black px-2 py-0.5 rounded ${
+                              c.fillRate >= 90 ? 'bg-emerald-100 text-emerald-800' :
+                              c.fillRate >= 80 ? 'bg-amber-100 text-amber-800' :
+                              'bg-rose-100 text-rose-800'
+                            }`}>
+                              充足率 {c.fillRate}%
+                            </span>
+                          </div>
                         </div>
-                        <span className="text-[9px] text-slate-400">{m.sentAt}</span>
-                      </div>
-                      <p className="text-slate-600 bg-white p-2 rounded border border-slate-100 leading-tight">{m.text}</p>
+                      ))}
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {superAdminTab === 'skills' && (
+                <div className="space-y-3">
+                  <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="font-bold text-xs text-slate-800">全19センター スキル習得進捗・多能工化率</h3>
+                      <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-bold">全社平均: 4.8個</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mb-3">各拠点のパート従業員におけるスキル習得進捗と1人あたり平均保有数です。</p>
+
+                    <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
+                      {CENTERS_DATA.map((c) => (
+                        <div key={c.id} className="py-2.5 flex items-center justify-between text-xs">
+                          <div>
+                            <div className="flex items-center space-x-1.5">
+                              <span className="font-bold text-slate-800">{c.name}</span>
+                              <span className="text-[9px] text-slate-400 bg-slate-100 px-1 py-0.2 rounded">{c.staffCount}名</span>
+                            </div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">
+                              1人あたり平均: <strong className="text-slate-700">{c.avgSkills} 個</strong>
+                            </div>
+                          </div>
+
+                          <div className="text-right flex items-center space-x-2">
+                            <div className="w-16 bg-slate-200 rounded-full h-2 overflow-hidden hidden sm:block">
+                              <div className="bg-indigo-600 h-full" style={{ width: `${c.skillRate}%` }} />
+                            </div>
+                            <span className={`text-xs font-black px-2 py-0.5 rounded ${
+                              c.skillRate >= 70 ? 'bg-emerald-100 text-emerald-800' :
+                              c.skillRate >= 60 ? 'bg-indigo-100 text-indigo-800' :
+                              'bg-amber-100 text-amber-800'
+                            }`}>
+                              進捗 {c.skillRate}%
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {superAdminTab === 'likes' && (
+                <div className="space-y-3">
+                  <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex justify-between items-center mb-1">
+                      <h3 className="font-bold text-xs text-slate-800">全センター いいね（サンクスカード）運用率</h3>
+                      <span className="text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded font-bold">全社平均: 81%</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mb-2">各センターの月間送信枠（月3件）に対する消化率です。</p>
+
+                    <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                      {CENTERS_DATA.map((c) => (
+                        <div key={c.id} className="p-2 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between text-xs">
+                          <span className="font-bold text-slate-700 truncate">{c.name}</span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                            c.likeUsageRate >= 80 ? 'bg-rose-100 text-rose-700' :
+                            c.likeUsageRate >= 65 ? 'bg-slate-200 text-slate-700' :
+                            'bg-amber-100 text-amber-800'
+                          }`}>
+                            {c.likeUsageRate}%
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 className="font-bold text-xs text-slate-800 mb-2">全国サンクスカード メッセージ履歴（全社）</h3>
+                    <span className="text-[10px] text-slate-400">最新順</span>
+                  </div>
+
+                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                    {allMessages.map((m) => (
+                      <div key={m.id} className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+                        <div className="flex justify-between items-center mb-1">
+                          <div className="flex items-center space-x-1.5">
+                            <span className="bg-slate-800 text-white font-bold text-[9px] px-1.5 py-0.2 rounded">{m.center}</span>
+                            <span className="font-bold text-slate-800">{m.from} ➔ {m.to}</span>
+                          </div>
+                          <span className="text-[9px] text-slate-400">{m.sentAt}</span>
+                        </div>
+                        <p className="text-slate-600 bg-white p-2 rounded border border-slate-100 leading-tight">{m.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
             </div>
           )}
-
-        </div>
+        </>
       )}
 
     </div>
